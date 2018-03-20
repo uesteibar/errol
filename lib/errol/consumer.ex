@@ -4,13 +4,13 @@ defmodule Errol.Consumer do
       use GenServer
 
       def start_link(args) do
-        GenServer.start_link(__MODULE__, args)
+        GenServer.start_link(__MODULE__, args, name: __MODULE__)
       end
 
       def init(options) do
-        {:ok, channel} = setup_queue(options)
+        {:ok, channel, queue, exchange} = setup_queue(options)
 
-        {:ok, %{channel: channel}}
+        {:ok, %{channel: channel, queue: queue, exchange: exchange}}
       end
 
       defp setup_queue(options) do
@@ -23,7 +23,7 @@ defmodule Errol.Consumer do
         :ok = AMQP.Queue.bind(channel, queue, exchange, routing_key: routing_key)
         {:ok, _} = AMQP.Basic.consume(channel, queue)
 
-        {:ok, channel}
+        {:ok, channel, queue, exchange}
       end
 
       def handle_info(
@@ -43,8 +43,8 @@ defmodule Errol.Consumer do
       end
 
       # Confirmation sent by the broker after registering this process as a consumer
-      def handle_info({:basic_consume_ok, _payload}, state) do
-        {:noreply, state}
+      def handle_info({:basic_consume_ok, %{consumer_tag: consumer_tag}}, state) do
+        {:noreply, Map.put(state, :consumer_tag, consumer_tag)}
       end
 
       # Sent by the broker when the consumer is unexpectedly cancelled (such as after a queue deletion)
@@ -55,6 +55,17 @@ defmodule Errol.Consumer do
       # Confirmation sent by the broker to the consumer process after a Basic.cancel
       def handle_info({:basic_cancel_ok, _payload}, state) do
         {:noreply, state}
+      end
+
+      def handle_call(:unbind, _from, %{channel: channel, queue: queue, consumer_tag: consumer_tag, exchange: exchange} = state) do
+        AMQP.Queue.unbind(channel, queue, exchange)
+        AMQP.Basic.cancel(channel, consumer_tag)
+
+        {:reply, :ok, state}
+      end
+
+      def stop() do
+        GenServer.call(__MODULE__, :unbind)
       end
     end
   end

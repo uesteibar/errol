@@ -1,5 +1,5 @@
 defmodule Errol.ConsumerTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: false
   doctest Errol.Consumer
 
   import ExUnit.CaptureIO
@@ -34,26 +34,37 @@ defmodule Errol.ConsumerTest do
 
       AMQP.Basic.publish(channel, "test_exchange", "test", "Hello amqp world!")
 
+      assert 1 == AMQP.Queue.consumer_count(channel, "test_queue")
       assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello amqp world!", _}}, 500
     end
   end
 
   describe "handle_info/2" do
     test "executes consume/2", %{channel: channel} do
-      {:ok, _} =
-        TestConsumer.start_link(
-          channel: channel,
-          queue: "test_queue",
-          exchange: "test_exchange",
-          routing_key: "test"
-        )
-
       assert capture_io(fn ->
                TestConsumer.handle_info(
                  {:basic_deliver, "Hello world", %{delivery_tag: "tag", redelivered: false}},
                  %{channel: channel}
                )
              end) =~ ~r/Hello world/
+    end
+  end
+
+  describe "stop/0" do
+    test "unbinds the queue from the exchange and stops consuming", %{channel: channel} do
+      {:ok, _} =
+        TestConsumer.start_link(
+          channel: channel,
+          queue: "queue_to_unbind",
+          exchange: "test_exchange",
+          routing_key: "test"
+        )
+
+      assert 1 == AMQP.Queue.consumer_count(channel, "queue_to_unbind")
+
+      :ok = TestConsumer.stop()
+
+      assert 0 == AMQP.Queue.consumer_count(channel, "queue_to_unbind")
     end
   end
 end
