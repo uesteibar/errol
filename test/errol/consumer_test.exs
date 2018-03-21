@@ -11,7 +11,7 @@ defmodule Errol.ConsumerTest do
   end
 
   setup do
-    {:ok, connection} = AMQP.Connection.open(host: "rabbit")
+    {:ok, connection} = AMQP.Connection.open(host: "localhost")
     {:ok, channel} = AMQP.Channel.open(connection)
     :ok = AMQP.Exchange.declare(channel, "test_exchange")
 

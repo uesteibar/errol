@@ -1,24 +1,12 @@
 version: '3'
 services:
-  app:
-    build: .
-    command: bash -c "sleep 10; mix test"
-    depends_on:
-      - rabbit
-    networks:
-      - webnet
-
   rabbit:
      hostname: rabbit
      image: rabbitmq
-     networks:
-       - webnet
      command: "rabbitmq-server"
      healthcheck:
        test: ["CMD", "rabbitmqctl", "node_health_check"]
      ports:
+       - "5672:5672"
        - "15672:15672"
-
-networks:
-  webnet:
 
