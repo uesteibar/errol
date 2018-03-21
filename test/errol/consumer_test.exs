@@ -7,7 +7,15 @@ defmodule Errol.ConsumerTest do
   defmodule TestConsumer do
     use Errol.Consumer
 
-    def consume(payload, _meta), do: IO.puts(payload)
+    def consume(payload, _meta) do
+      IO.puts(payload)
+    end
+  end
+
+  defmodule FailConsumer do
+    use Errol.Consumer
+
+    def consume(_payload, _meta), do: raise "Error"
   end
 
   setup do
@@ -36,6 +44,25 @@ defmodule Errol.ConsumerTest do
 
       assert 1 == AMQP.Queue.consumer_count(channel, "test_queue")
       assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello amqp world!", _}}, 500
+    end
+
+    test "requeues message on error", %{channel: channel} do
+      {:ok, pid} =
+        FailConsumer.start_link(
+          channel: channel,
+          queue: "fail_queue",
+          exchange: "test_exchange",
+          routing_key: "test.fail"
+        )
+
+      :timer.sleep(1000)
+
+      :erlang.trace(pid, true, [:receive])
+
+      AMQP.Basic.publish(channel, "test_exchange", "test.fail", "Fail!")
+
+      assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Fail!", %{redelivered: true}}},
+                     1000
     end
   end
 

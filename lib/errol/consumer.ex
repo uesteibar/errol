@@ -2,6 +2,7 @@ defmodule Errol.Consumer do
   defmacro __using__(_) do
     quote do
       use GenServer
+      require Logger
 
       def start_link(args) do
         GenServer.start_link(__MODULE__, args, name: __MODULE__)
@@ -30,14 +31,15 @@ defmodule Errol.Consumer do
             {:basic_deliver, payload, %{delivery_tag: tag, redelivered: redelivered} = meta},
             state
           ) do
-        spawn(fn -> consume(payload, meta) end)
+        consume(payload, meta)
         :ok = AMQP.Basic.ack(state.channel, tag)
 
         {:noreply, state}
       rescue
         exception ->
-          :ok = Basic.reject(state.channel, tag, requeue: !redelivered)
-          IO.puts("Error consuming #{payload}")
+          :ok = AMQP.Basic.reject(state.channel, tag, requeue: !redelivered)
+          Logger.error("Error consuming #{payload}")
+          Logger.error(exception.message)
 
           {:noreply, state}
       end
@@ -57,7 +59,12 @@ defmodule Errol.Consumer do
         {:noreply, state}
       end
 
-      def handle_call(:unbind, _from, %{channel: channel, queue: queue, consumer_tag: consumer_tag, exchange: exchange} = state) do
+      def handle_call(
+            :unbind,
+            _from,
+            %{channel: channel, queue: queue, consumer_tag: consumer_tag, exchange: exchange} =
+              state
+          ) do
         AMQP.Queue.unbind(channel, queue, exchange)
         AMQP.Basic.cancel(channel, consumer_tag)
 
