@@ -7,7 +7,9 @@ defmodule Errol.MixProject do
       version: "0.1.0",
       elixir: "~> 1.6",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      aliases: aliases(),
+      test_coverage: [tool: Coverex.Task]
     ]
   end
 
@@ -21,7 +23,14 @@ defmodule Errol.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:amqp, "~> 1.0"}
+      {:amqp, "~> 1.0"},
+      {:coverex, "~> 1.4", only: :test}
+    ]
+  end
+
+  defp aliases do
+    [
+      test: "test --cover"
     ]
   end
 end
