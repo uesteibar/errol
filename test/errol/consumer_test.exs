@@ -15,7 +15,7 @@ defmodule Errol.ConsumerTest do
   defmodule FailConsumer do
     use Errol.Consumer
 
-    def consume(_payload, _meta), do: raise "Error"
+    def consume(_payload, _meta), do: raise("Error")
   end
 
   setup do

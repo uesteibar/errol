@@ -4,6 +4,8 @@ defmodule Errol.Consumer do
       use GenServer
       require Logger
 
+      alias Errol.Setup
+
       def start_link(args) do
         GenServer.start_link(__MODULE__, args, name: __MODULE__)
       end
@@ -20,9 +22,10 @@ defmodule Errol.Consumer do
         exchange = Keyword.get(options, :exchange, "")
         routing_key = Keyword.get(options, :routing_key, "*")
 
-        {:ok, _} = AMQP.Queue.declare(channel, queue)
-        :ok = AMQP.Queue.bind(channel, queue, exchange, routing_key: routing_key)
-        {:ok, _} = AMQP.Basic.consume(channel, queue)
+        {channel, queue}
+        |> Setup.declare_queue()
+        |> Setup.bind_queue(exchange, routing_key: routing_key)
+        |> Setup.set_consumer()
 
         {:ok, channel, queue, exchange}
       end
