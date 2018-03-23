@@ -6,6 +6,8 @@ defmodule Errol.Consumer do
 
       alias Errol.Setup
 
+      @behaviour Errol.Behaviours.Consumer
+
       def start_link(args) do
         GenServer.start_link(__MODULE__, args, name: __MODULE__)
       end
