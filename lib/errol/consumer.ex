@@ -13,7 +13,7 @@ defmodule Errol.Consumer do
       def init(options) do
         {:ok, channel, queue, exchange} = setup_queue(options)
 
-        {:ok, %{channel: channel, queue: queue, exchange: exchange}}
+        {:ok, %{channel: channel, queue: queue, exchange: exchange, running_messages: %{}}}
       end
 
       defp setup_queue(options) do
@@ -34,17 +34,26 @@ defmodule Errol.Consumer do
             {:basic_deliver, payload, %{delivery_tag: tag, redelivered: redelivered} = meta},
             state
           ) do
-        consume(payload, meta)
-        :ok = AMQP.Basic.ack(state.channel, tag)
+        {pid, _ref} =
+          spawn_monitor(fn ->
+            consume(payload, meta)
+            :ok = AMQP.Basic.ack(state.channel, tag)
+          end)
 
-        {:noreply, state}
-      rescue
-        exception ->
-          :ok = AMQP.Basic.reject(state.channel, tag, requeue: !redelivered)
-          Logger.error("Error consuming #{payload}")
-          Logger.error(exception.message)
+        {:noreply,
+         %{state | running_messages: Map.put(state.running_messages, pid, {:running, meta})}}
+      end
 
-          {:noreply, state}
+      def handle_info({:DOWN, _, :process, pid, _}, state) do
+        {{:running, %{delivery_tag: tag, redelivered: redelivered}}, running_messages} =
+          Map.pop(state.running_messages, pid)
+
+        state.running_messages
+
+        unless redelivered, do: Logger.error("Requeueing message: #{tag}")
+        :ok = AMQP.Basic.nack(state.channel, tag, requeue: !redelivered)
+
+        {:noreply, %{state | running_messages: running_messages}}
       end
 
       # Confirmation sent by the broker after registering this process as a consumer

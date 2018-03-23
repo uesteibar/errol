@@ -22,6 +22,9 @@ defmodule Errol.ConsumerTest do
     {:ok, connection} = AMQP.Connection.open(host: "localhost")
     {:ok, channel} = AMQP.Channel.open(connection)
     :ok = AMQP.Exchange.declare(channel, "test_exchange")
+    {:ok, _} = AMQP.Queue.purge(channel, "test_queue")
+    {:ok, _} = AMQP.Queue.purge(channel, "fail_queue")
+    {:ok, _} = AMQP.Queue.purge(channel, "queue_to_unbind")
 
     %{channel: channel}
   end
@@ -68,12 +71,16 @@ defmodule Errol.ConsumerTest do
 
   describe "handle_info/2" do
     test "executes consume/2", %{channel: channel} do
-      assert capture_io(fn ->
-               TestConsumer.handle_info(
-                 {:basic_deliver, "Hello world", %{delivery_tag: "tag", redelivered: false}},
-                 %{channel: channel}
-               )
-             end) =~ ~r/Hello world/
+      self_pid = self()
+      capture_io(fn ->
+        Process.group_leader(self(), self_pid)
+        TestConsumer.handle_info(
+          {:basic_deliver, "Hello world", %{delivery_tag: "tag", redelivered: false}},
+          %{channel: channel, running_messages: %{}}
+        )
+      end)
+
+      assert_receive {:io_request, _, _, {:put_chars, :unicode, "Hello world\n"}}, 1000
     end
   end
 
