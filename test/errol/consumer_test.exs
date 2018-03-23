@@ -72,8 +72,10 @@ defmodule Errol.ConsumerTest do
   describe "handle_info/2" do
     test "executes consume/2", %{channel: channel} do
       self_pid = self()
+
       capture_io(fn ->
         Process.group_leader(self(), self_pid)
+
         TestConsumer.handle_info(
           {:basic_deliver, "Hello world", %{delivery_tag: "tag", redelivered: false}},
           %{channel: channel, running_messages: %{}}
@@ -99,6 +101,18 @@ defmodule Errol.ConsumerTest do
       :ok = TestConsumer.stop()
 
       assert 0 == AMQP.Queue.consumer_count(channel, "queue_to_unbind")
+    end
+  end
+
+  describe "start_link/1" do
+    test "returns :ok when consumer is successfully set up", %{channel: channel} do
+      assert {:ok, _pid} =
+               TestConsumer.start_link(
+                 channel: channel,
+                 queue: "success_queue",
+                 exchange: "test_exchange",
+                 routing_key: "test.success"
+               )
     end
   end
 end
