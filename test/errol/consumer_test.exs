@@ -21,7 +21,7 @@ defmodule Errol.ConsumerTest do
   setup do
     {:ok, connection} = AMQP.Connection.open(host: "localhost")
     {:ok, channel} = AMQP.Channel.open(connection)
-    :ok = AMQP.Exchange.declare(channel, "test_exchange")
+    :ok = AMQP.Exchange.declare(channel, "test_exchange", :topic)
     {:ok, _} = AMQP.Queue.purge(channel, "test_queue")
     {:ok, _} = AMQP.Queue.purge(channel, "fail_queue")
     {:ok, _} = AMQP.Queue.purge(channel, "queue_to_unbind")

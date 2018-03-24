@@ -14,8 +14,15 @@ defmodule Errol.Consumer do
 
       def init(options) do
         case setup_queue(options) do
-          {:ok, channel, queue, exchange} ->
-            {:ok, %{channel: channel, queue: queue, exchange: exchange, running_messages: %{}}}
+          {:ok, channel, queue, exchange, routing_key} ->
+            {:ok,
+             %{
+               channel: channel,
+               queue: queue,
+               exchange: exchange,
+               routing_key: routing_key,
+               running_messages: %{}
+             }}
 
           _ ->
             {:stop, :normal, "Consumer couldn't be set up"}
@@ -34,28 +41,31 @@ defmodule Errol.Consumer do
           |> Setup.bind_queue(exchange, routing_key: routing_key)
           |> Setup.set_consumer()
 
-        {status, channel, queue, exchange}
+        {status, channel, queue, exchange, routing_key}
       end
 
       def handle_info(
             {:basic_deliver, payload, %{delivery_tag: tag, redelivered: redelivered} = meta},
             state
           ) do
-        {pid, _ref} =
-          spawn_monitor(fn ->
-            consume(payload, meta)
-            :ok = AMQP.Basic.ack(state.channel, tag)
-          end)
+        {pid, _ref} = spawn_monitor(fn -> consume(payload, meta) end)
 
         {:noreply,
          %{state | running_messages: Map.put(state.running_messages, pid, {:running, meta})}}
       end
 
+      def handle_info({:DOWN, _, :process, pid, :normal}, state) do
+        {{:running, %{delivery_tag: tag}}, running_messages} =
+          Map.pop(state.running_messages, pid)
+
+        :ok = AMQP.Basic.ack(state.channel, tag)
+
+        {:noreply, %{state | running_messages: running_messages}}
+      end
+
       def handle_info({:DOWN, _, :process, pid, _}, state) do
         {{:running, %{delivery_tag: tag, redelivered: redelivered}}, running_messages} =
           Map.pop(state.running_messages, pid)
-
-        state.running_messages
 
         unless redelivered, do: Logger.error("Requeueing message: #{tag}")
         :ok = AMQP.Basic.nack(state.channel, tag, requeue: !redelivered)
@@ -92,6 +102,14 @@ defmodule Errol.Consumer do
 
       def stop() do
         GenServer.call(__MODULE__, :unbind)
+      end
+
+      def handle_call(:config, _from, state) do
+        {:reply, state, state}
+      end
+
+      def get_config() do
+        GenServer.call(__MODULE__, :config)
       end
     end
   end
