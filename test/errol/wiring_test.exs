@@ -33,13 +33,17 @@ defmodule Errol.WiringTest do
       {:ok, _} = AMQP.Queue.purge(channel, "message_success")
       {:ok, _} = AMQP.Queue.purge(channel, "message_all")
 
-      TestWiring.run()
+      {:ok, _} = TestWiring.start_link(nil)
       :timer.sleep(2000)
 
-      assert %{queue: "message_success", routing_key: "message.success"} =
-               TestConsumer.get_config()
+      assert %{
+               queue: "message_success",
+               routing_key: "message.success",
+               exchange: "wiring_exchange"
+             } = TestConsumer.get_config()
 
-      assert %{queue: "message_all", routing_key: "message.*"} = AllConsumer.get_config()
+      assert %{queue: "message_all", routing_key: "message.*", exchange: "wiring_exchange"} =
+               AllConsumer.get_config()
     end
   end
 end

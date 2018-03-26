@@ -4,6 +4,12 @@ defmodule Errol.Wiring do
       import unquote(__MODULE__)
       Module.register_attribute(__MODULE__, :wirings, accumulate: true)
       @before_compile unquote(__MODULE__)
+
+      use Supervisor
+
+      def start_link(_) do
+        Supervisor.start_link(__MODULE__, nil, name: __MODULE__)
+      end
     end
   end
 
@@ -15,21 +21,16 @@ defmodule Errol.Wiring do
 
   defmacro __before_compile__(_env) do
     quote do
-      def run do
+      def init(_) do
         {:ok, connection} = AMQP.Connection.open(host: "localhost")
         {:ok, channel} = AMQP.Channel.open(connection)
         :ok = AMQP.Exchange.declare(channel, @exchange, @exchange_type)
 
-        IO.puts("Wiring...")
-
-        Enum.each(@wirings, fn {queue, routing_key, consumer} ->
-          consumer.start_link(
-            queue: queue,
-            routing_key: routing_key,
-            channel: channel,
-            exchange: @exchange
-          )
+        Enum.map(@wirings, fn {queue, routing_key, consumer} ->
+          {consumer,
+           [queue: queue, routing_key: routing_key, channel: channel, exchange: @exchange]}
         end)
+        |> Supervisor.init(strategy: :one_for_one)
       end
     end
   end
