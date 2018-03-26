@@ -7,7 +7,7 @@ defmodule Errol.ConsumerTest do
   defmodule TestConsumer do
     use Errol.Consumer
 
-    def consume(payload, _meta) do
+    def consume(%Errol.Message{payload: payload}) do
       IO.puts(payload)
     end
   end
@@ -15,7 +15,7 @@ defmodule Errol.ConsumerTest do
   defmodule FailConsumer do
     use Errol.Consumer
 
-    def consume(_payload, _meta), do: raise("Error")
+    def consume(%Errol.Message{}), do: raise("Error")
   end
 
   setup do

@@ -4,9 +4,9 @@ defmodule Errol.Consumer do
       use GenServer
       require Logger
 
-      alias Errol.Setup
+      alias Errol.{Setup, Message}
 
-      @behaviour Errol.Behaviours.Consumer
+      @callback consume(Message.t()) :: any()
 
       def start_link(args) do
         GenServer.start_link(__MODULE__, args, name: __MODULE__)
@@ -48,14 +48,15 @@ defmodule Errol.Consumer do
             {:basic_deliver, payload, %{delivery_tag: tag, redelivered: redelivered} = meta},
             state
           ) do
-        {pid, _ref} = spawn_monitor(fn -> consume(payload, meta) end)
+        message = %Message{payload: payload, meta: meta}
+        {pid, _ref} = spawn_monitor(fn -> consume(message) end)
 
         {:noreply,
-         %{state | running_messages: Map.put(state.running_messages, pid, {:running, meta})}}
+         %{state | running_messages: Map.put(state.running_messages, pid, {:running, message})}}
       end
 
       def handle_info({:DOWN, _, :process, pid, :normal}, state) do
-        {{:running, %{delivery_tag: tag}}, running_messages} =
+        {{:running, %Message{meta: %{delivery_tag: tag}}}, running_messages} =
           Map.pop(state.running_messages, pid)
 
         :ok = AMQP.Basic.ack(state.channel, tag)
@@ -64,8 +65,8 @@ defmodule Errol.Consumer do
       end
 
       def handle_info({:DOWN, _, :process, pid, _}, state) do
-        {{:running, %{delivery_tag: tag, redelivered: redelivered}}, running_messages} =
-          Map.pop(state.running_messages, pid)
+        {{:running, %Message{meta: %{delivery_tag: tag, redelivered: redelivered}}},
+         running_messages} = Map.pop(state.running_messages, pid)
 
         unless redelivered, do: Logger.error("Requeueing message: #{tag}")
         :ok = AMQP.Basic.nack(state.channel, tag, requeue: !redelivered)

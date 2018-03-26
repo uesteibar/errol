@@ -7,13 +7,13 @@ defmodule Errol.WiringTest do
   defmodule AllConsumer do
     use Consumer
 
-    def consume(_payload, _meta), do: :ok
+    def consume(_message), do: :ok
   end
 
   defmodule TestConsumer do
     use Consumer
 
-    def consume(_payload, _meta), do: :ok
+    def consume(_message), do: :ok
   end
 
   defmodule TestWiring do
@@ -39,8 +39,7 @@ defmodule Errol.WiringTest do
       assert %{queue: "message_success", routing_key: "message.success"} =
                TestConsumer.get_config()
 
-      assert %{queue: "message_all", routing_key: "message.*"} =
-               AllConsumer.get_config()
+      assert %{queue: "message_all", routing_key: "message.*"} = AllConsumer.get_config()
     end
   end
 end
