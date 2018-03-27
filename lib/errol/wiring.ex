@@ -22,7 +22,8 @@ defmodule Errol.Wiring do
   defmacro __before_compile__(_env) do
     quote do
       def init(_) do
-        {:ok, connection} = AMQP.Connection.open(host: "localhost")
+        [connection: config] = Application.get_env(:errol, __MODULE__)
+        {:ok, connection} = AMQP.Connection.open(config)
         {:ok, channel} = AMQP.Channel.open(connection)
         :ok = AMQP.Exchange.declare(channel, @exchange, @exchange_type)
 
