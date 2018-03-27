@@ -22,14 +22,19 @@ defmodule Errol.ConsumerTest do
     {:ok, connection} = AMQP.Connection.open(host: "localhost")
     {:ok, channel} = AMQP.Channel.open(connection)
     :ok = AMQP.Exchange.declare(channel, "test_exchange", :topic)
-    {:ok, _} = AMQP.Queue.purge(channel, "test_queue")
-    {:ok, _} = AMQP.Queue.purge(channel, "fail_queue")
-    {:ok, _} = AMQP.Queue.purge(channel, "queue_to_unbind")
 
     %{channel: channel}
   end
 
   describe "consume/2" do
+    setup %{channel: channel} do
+      on_exit(fn ->
+        {:ok, _} = AMQP.Queue.purge(channel, "test_queue")
+        {:ok, _} = AMQP.Queue.purge(channel, "fail_queue")
+        {:ok, _} = AMQP.Queue.purge(channel, "queue_to_unbind")
+      end)
+    end
+
     test "receives message with correct payload", %{channel: channel} do
       {:ok, pid} =
         TestConsumer.start_link(

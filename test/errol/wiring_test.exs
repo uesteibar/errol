@@ -27,12 +27,17 @@ defmodule Errol.WiringTest do
   end
 
   describe "start_link/1" do
-    test "starts the consumers" do
+    setup do
       {:ok, connection} = AMQP.Connection.open(host: "localhost")
       {:ok, channel} = AMQP.Channel.open(connection)
-      {:ok, _} = AMQP.Queue.purge(channel, "message_success")
-      {:ok, _} = AMQP.Queue.purge(channel, "message_all")
 
+      on_exit(fn ->
+        {:ok, _} = AMQP.Queue.purge(channel, "message_success")
+        {:ok, _} = AMQP.Queue.purge(channel, "message_all")
+      end)
+    end
+
+    test "starts the consumers" do
       {:ok, _} = TestWiring.start_link(nil)
       :timer.sleep(2000)
 
