@@ -35,14 +35,21 @@ defmodule Errol.Consumer do
         {exchange, exchange_type} = Keyword.get(options, :exchange)
         routing_key = Keyword.get(options, :routing_key, "*")
 
-        {:ok, {channel, queue}} =
-          {connection, queue, exchange, exchange_type}
-          |> Setup.open_channel()
-          |> Setup.declare_queue()
-          |> Setup.bind_queue(exchange, routing_key: routing_key)
-          |> Setup.set_consumer()
+        case set_consumer(connection, queue, routing_key, {exchange, exchange_type}) do
+          {:ok, {channel, queue}} ->
+            {:ok, channel, queue, exchange, routing_key}
 
-        {:ok, channel, queue, exchange, routing_key}
+          {:error, reason} ->
+            {:error, reason}
+        end
+      end
+
+      defp set_consumer(connection, queue, routing_key, {exchange, exchange_type}) do
+        {connection, queue, exchange, exchange_type}
+        |> Setup.open_channel()
+        |> Setup.declare_queue()
+        |> Setup.bind_queue(exchange, routing_key: routing_key)
+        |> Setup.set_consumer()
       end
 
       def handle_info(
