@@ -13,7 +13,7 @@ defmodule Errol.Wiring do
     end
   end
 
-  defmacro wire(queue, routing_key, consumer) do
+  defmacro consume(queue, routing_key, consumer) do
     quote do
       @wirings {unquote(queue), unquote(routing_key), unquote(consumer)}
     end

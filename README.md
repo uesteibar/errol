@@ -77,8 +77,8 @@ defmodule Sample.Wiring do
   @exchange "wiring_exchange"
   @exchange_type :topic
 
-  wire "my_awesome_queue", "my.routing.key", Sample.AwesomeConsumer
-  wire "another_queue", "another.*.key", Sample.AnotherConsumer
+  consume "my_awesome_queue", "my.routing.key", Sample.AwesomeConsumer
+  consume "another_queue", "another.*.key", Sample.AnotherConsumer
 end
 ```
 

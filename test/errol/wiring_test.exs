@@ -22,8 +22,8 @@ defmodule Errol.WiringTest do
     @exchange "wiring_exchange"
     @exchange_type :topic
 
-    wire("message_success", "message.success", TestConsumer)
-    wire("message_all", "message.*", AllConsumer)
+    consume("message_success", "message.success", TestConsumer)
+    consume("message_all", "message.*", AllConsumer)
   end
 
   describe "start_link/1" do
