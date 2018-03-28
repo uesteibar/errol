@@ -48,7 +48,7 @@ config :sample, Sample.Wiring,
   ]
 ```
 
-To define consumers, you can use the `Errol.Consumer` behaviour:
+To define consumers, you can use the `Errol.Consumer` module:
 
 ```elixir
 defmodule Sample.AwesomeConsumer do
@@ -68,7 +68,7 @@ defmodule Sample.AnotherConsumer do
 end
 ```
 
-To bind consumers to queue, you can use the `Errol.Wiring` behaviour:
+To bind consumers to queue, you can use the `Errol.Wiring` module:
 
 ```elixir
 defmodule Sample.Wiring do

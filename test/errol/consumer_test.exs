@@ -21,9 +21,10 @@ defmodule Errol.ConsumerTest do
   setup do
     {:ok, connection} = AMQP.Connection.open(host: "localhost")
     {:ok, channel} = AMQP.Channel.open(connection)
-    :ok = AMQP.Exchange.declare(channel, "test_exchange", :topic)
+    exchange = {exchange_name, exchange_type} = {"test_exchange", :topic}
+    :ok = AMQP.Exchange.declare(channel, exchange_name, exchange_type)
 
-    %{channel: channel}
+    %{channel: channel, connection: connection, exchange: exchange}
   end
 
   describe "consume/2" do
@@ -35,12 +36,16 @@ defmodule Errol.ConsumerTest do
       end)
     end
 
-    test "receives message with correct payload", %{channel: channel} do
+    test "receives message with correct payload", %{
+      connection: connection,
+      channel: channel,
+      exchange: exchange
+    } do
       {:ok, pid} =
         TestConsumer.start_link(
-          channel: channel,
+          connection: connection,
           queue: "test_queue",
-          exchange: "test_exchange",
+          exchange: exchange,
           routing_key: "test"
         )
 
@@ -54,12 +59,16 @@ defmodule Errol.ConsumerTest do
       assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello amqp world!", _}}, 500
     end
 
-    test "requeues message on error", %{channel: channel} do
+    test "requeues message on error", %{
+      channel: channel,
+      connection: connection,
+      exchange: exchange
+    } do
       {:ok, pid} =
         FailConsumer.start_link(
-          channel: channel,
+          connection: connection,
           queue: "fail_queue",
-          exchange: "test_exchange",
+          exchange: exchange,
           routing_key: "test.fail"
         )
 
@@ -92,12 +101,16 @@ defmodule Errol.ConsumerTest do
   end
 
   describe "stop/0" do
-    test "unbinds the queue from the exchange and stops consuming", %{channel: channel} do
+    test "unbinds the queue from the exchange and stops consuming", %{
+      channel: channel,
+      connection: connection,
+      exchange: exchange
+    } do
       {:ok, _} =
         TestConsumer.start_link(
-          channel: channel,
+          connection: connection,
           queue: "queue_to_unbind",
-          exchange: "test_exchange",
+          exchange: exchange,
           routing_key: "test"
         )
 
@@ -110,12 +123,15 @@ defmodule Errol.ConsumerTest do
   end
 
   describe "start_link/1" do
-    test "returns :ok when consumer is successfully set up", %{channel: channel} do
+    test "returns :ok when consumer is successfully set up", %{
+      connection: connection,
+      exchange: exchange
+    } do
       assert {:ok, _pid} =
                TestConsumer.start_link(
-                 channel: channel,
+                 connection: connection,
                  queue: "success_queue",
-                 exchange: "test_exchange",
+                 exchange: exchange,
                  routing_key: "test.success"
                )
     end

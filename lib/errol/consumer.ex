@@ -30,18 +30,19 @@ defmodule Errol.Consumer do
       end
 
       defp setup_queue(options) do
-        channel = Keyword.get(options, :channel)
+        connection = Keyword.get(options, :connection)
         queue = Keyword.get(options, :queue)
-        exchange = Keyword.get(options, :exchange, "")
+        {exchange, exchange_type} = Keyword.get(options, :exchange)
         routing_key = Keyword.get(options, :routing_key, "*")
 
-        {status, _} =
-          {channel, queue}
+        {:ok, {channel, queue}} =
+          {connection, queue, exchange, exchange_type}
+          |> Setup.open_channel()
           |> Setup.declare_queue()
           |> Setup.bind_queue(exchange, routing_key: routing_key)
           |> Setup.set_consumer()
 
-        {status, channel, queue, exchange, routing_key}
+        {:ok, channel, queue, exchange, routing_key}
       end
 
       def handle_info(

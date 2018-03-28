@@ -24,12 +24,15 @@ defmodule Errol.Wiring do
       def init(_) do
         [connection: config] = Application.get_env(:errol, __MODULE__)
         {:ok, connection} = AMQP.Connection.open(config)
-        {:ok, channel} = AMQP.Channel.open(connection)
-        :ok = AMQP.Exchange.declare(channel, @exchange, @exchange_type)
 
         Enum.map(@wirings, fn {queue, routing_key, consumer} ->
           {consumer,
-           [queue: queue, routing_key: routing_key, channel: channel, exchange: @exchange]}
+           [
+             queue: queue,
+             routing_key: routing_key,
+             connection: connection,
+             exchange: {@exchange, @exchange_type}
+           ]}
         end)
         |> Supervisor.init(strategy: :one_for_one)
       end
