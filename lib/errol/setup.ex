@@ -1,50 +1,82 @@
 defmodule Errol.Setup do
   @moduledoc false
 
-  def open_channel({connection, queue, exchange, exchange_type}) do
+  def set_consumer(options) do
+    options = %{
+      connection: Keyword.get(options, :connection),
+      queue: Keyword.get(options, :queue),
+      exchange: Keyword.get(options, :exchange),
+      routing_key: Keyword.get(options, :routing_key, "*"),
+      channel: nil
+    }
+
+    {:ok, options}
+    |> open_channel()
+    |> declare_exchange()
+    |> declare_queue()
+    |> bind_queue()
+    |> connect_consumer()
+  end
+
+  defp open_channel({:ok, %{connection: connection} = options}) do
     case AMQP.Channel.open(connection) do
       {:ok, channel} ->
-        :ok = AMQP.Exchange.declare(channel, exchange, exchange_type)
-        {channel, queue}
+        {:ok, %{options | channel: channel}}
 
       {:error, reason} ->
         {:error, reason}
     end
   end
 
-  def declare_queue({channel, queue}) do
+  defp declare_exchange({:ok, %{channel: channel, exchange: {exchange, exchange_type}} = options}) do
+    case AMQP.Exchange.declare(channel, exchange, exchange_type) do
+      :ok ->
+        {:ok, options}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp declare_exchange({:error, _} = derail), do: derail
+
+  defp declare_queue({:ok, %{channel: channel, queue: queue} = options}) do
     case AMQP.Queue.declare(channel, queue) do
       {:ok, _} ->
-        {:ok, {channel, queue}}
+        {:ok, options}
 
       {:error, reason} ->
         {:error, reason}
     end
   end
 
-  def declare_queue({:error, _, _} = derail, _, _), do: derail
+  defp declare_queue({:error, _} = derail), do: derail
 
-  def bind_queue({:ok, {channel, queue}}, exchange, routing_key: routing_key) do
+  defp bind_queue(
+         {:ok,
+          %{channel: channel, queue: queue, exchange: {exchange, _}, routing_key: routing_key} =
+            options}
+       ) do
     case AMQP.Queue.bind(channel, queue, exchange, routing_key: routing_key) do
       :ok ->
-        {:ok, {channel, queue}}
+        {:ok, options}
 
       {:error, reason} ->
         {:error, reason}
     end
   end
 
-  def bind_queue({:error, _, _} = derail, _, _), do: derail
+  defp bind_queue({:error, _} = derail), do: derail
 
-  def set_consumer({:ok, {channel, queue}}) do
+  defp connect_consumer({:ok, %{channel: channel, queue: queue} = options}) do
     case AMQP.Basic.consume(channel, queue) do
       {:ok, _} ->
-        {:ok, {channel, queue}}
+        {:ok, options}
 
       {:error, reason} ->
         {:error, reason}
     end
   end
 
-  def set_consumer({:error, _, _} = derail), do: derail
+  defp connect_consumer({:error, _} = derail), do: derail
 end

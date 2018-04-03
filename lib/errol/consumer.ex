@@ -13,8 +13,14 @@ defmodule Errol.Consumer do
       end
 
       def init(options) do
-        case setup_queue(options) do
-          {:ok, channel, queue, exchange, routing_key} ->
+        case Setup.set_consumer(options) do
+          {:ok,
+           %{
+             channel: channel,
+             queue: queue,
+             exchange: {exchange, _},
+             routing_key: routing_key
+           }} ->
             {:ok,
              %{
                channel: channel,
@@ -27,29 +33,6 @@ defmodule Errol.Consumer do
           _ ->
             {:stop, :normal, "Consumer couldn't be set up"}
         end
-      end
-
-      defp setup_queue(options) do
-        connection = Keyword.get(options, :connection)
-        queue = Keyword.get(options, :queue)
-        {exchange, exchange_type} = Keyword.get(options, :exchange)
-        routing_key = Keyword.get(options, :routing_key, "*")
-
-        case set_consumer(connection, queue, routing_key, {exchange, exchange_type}) do
-          {:ok, {channel, queue}} ->
-            {:ok, channel, queue, exchange, routing_key}
-
-          {:error, reason} ->
-            {:error, reason}
-        end
-      end
-
-      defp set_consumer(connection, queue, routing_key, {exchange, exchange_type}) do
-        {connection, queue, exchange, exchange_type}
-        |> Setup.open_channel()
-        |> Setup.declare_queue()
-        |> Setup.bind_queue(exchange, routing_key: routing_key)
-        |> Setup.set_consumer()
       end
 
       def handle_info(
