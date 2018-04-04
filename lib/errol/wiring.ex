@@ -3,6 +3,8 @@ defmodule Errol.Wiring do
     quote do
       import unquote(__MODULE__)
       Module.register_attribute(__MODULE__, :wirings, accumulate: true)
+      Module.register_attribute(__MODULE__, :connection, acumulate: false)
+      @connection []
       @before_compile unquote(__MODULE__)
 
       use Supervisor
@@ -22,8 +24,7 @@ defmodule Errol.Wiring do
   defmacro __before_compile__(_env) do
     quote do
       def init(_) do
-        [connection: config] = Application.get_env(:errol, __MODULE__)
-        {:ok, connection} = AMQP.Connection.open(config)
+        {:ok, connection} = AMQP.Connection.open(@connection)
 
         Enum.map(@wirings, fn {queue, routing_key, consumer} ->
           {consumer,

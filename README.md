@@ -30,24 +30,6 @@ Documentation can be found at [https://hexdocs.pm/errol](https://hexdocs.pm/erro
 
 ## Usage
 
-You can configure the connection in your `config.exs` file:
-
-```elixir
-config :sample, Sample.Wiring,
-  connection: "amqp://guest:guest@localhost"
-```
-
-or
-
-```elixir
-config :sample, Sample.Wiring,
-  connection: [
-    host: "localhost",
-    port: "1234",
-    ...
-  ]
-```
-
 To define consumers, you can use the `Errol.Consumer` module:
 
 ```elixir
@@ -74,6 +56,7 @@ To bind consumers to queue, you can use the `Errol.Wiring` module:
 defmodule Sample.Wiring do
   use Errol.Wiring
 
+  @connection "amqp://guest:guest@localhost"
   @exchange "wiring_exchange"
   @exchange_type :topic
 
@@ -81,6 +64,8 @@ defmodule Sample.Wiring do
   consume "another_queue", "another.*.key", Sample.AnotherConsumer
 end
 ```
+
+For the `@connection` attribute, you can pass anything that fits what the [amqp](https://hexdocs.pm/amqp/1.0.2/AMQP.Connection.html#open/1) hex expects on `AMQP.Connection.open/1`.
 
 At this point, the only thing you have to do is run `Sample.Wiring` as a _supervisor_ in your `application.ex` file:
 
