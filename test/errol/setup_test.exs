@@ -1,6 +1,6 @@
 defmodule Errol.SetupTest do
   use ExUnit.Case, async: false
-  doctest Errol.Consumer
+  doctest Errol.Setup
 
   import Mock
 

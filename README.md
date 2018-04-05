@@ -30,26 +30,6 @@ Documentation can be found at [https://hexdocs.pm/errol](https://hexdocs.pm/erro
 
 ## Usage
 
-To define consumers, you can use the `Errol.Consumer` module:
-
-```elixir
-defmodule Sample.AwesomeConsumer do
-  use Errol.Consumer
-
-  def consume(%Errol.Message{payload: payload, meta: meta}) do
-    ...
-  end
-end
-
-defmodule Sample.AnotherConsumer do
-  use Errol.Consumer
-
-  def consume(%Errol.Message{payload: payload, meta: meta}) do
-    ...
-  end
-end
-```
-
 To bind consumers to queue, you can use the `Errol.Wiring` module:
 
 ```elixir
@@ -60,8 +40,11 @@ defmodule Sample.Wiring do
   @exchange "wiring_exchange"
   @exchange_type :topic
 
-  consume "my_awesome_queue", "my.routing.key", Sample.AwesomeConsumer
-  consume "another_queue", "another.*.key", Sample.AnotherConsumer
+  # You can pass a reference to a function
+  consume "my_awesome_queue", "my.routing.key", &Sample.AwesomeConsumer.consume/1
+
+  # or even an anonymous function
+  consume "another_queue", "another.*.key", fn (message) -> ... end
 end
 ```
 
@@ -102,16 +85,16 @@ Voila! This will spin up the following supervision tree:
                    ______________|______________
                   |                             |
                   |                             |
-      ------------------------       ------------------------
-     | Sample.AwesomeConsumer |     | Sample.AnotherConsumer |
-      ------------------------       ------------------------
-        .     .     .     .           .    .    .    .    .
-        .     .     .     .           .    .    .    .    .
-        .     .     .     .           .    .    .    .    .
-        .     .     .     .           .    .    .    .    .
-        .     .     .     .           .    .    .    .    .
+      -------------------------       -------------------------
+     | :another_queue_consumer |     | :another_queue_consumer |
+      -------------------------       -------------------------
+        .     .     .     .             .    .    .    .    .
+        .     .     .     .             .    .    .    .    .
+        .     .     .     .             .    .    .    .    .
+        .     .     .     .             .    .    .    .    .
+        .     .     .     .             .    .    .    .    .
 
-          New monitored process per each message received
+           New monitored process per each message received
 
 
 ```

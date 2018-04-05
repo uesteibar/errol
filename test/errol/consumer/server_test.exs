@@ -1,20 +1,16 @@
-defmodule Errol.ConsumerTest do
+defmodule Errol.Consumer.ServerTest do
   use ExUnit.Case, async: false
-  doctest Errol.Consumer
+  doctest Errol.Consumer.Server
 
-  import ExUnit.CaptureIO
+  alias Errol.Consumer.Server
 
   defmodule TestConsumer do
-    use Errol.Consumer
-
     def consume(%Errol.Message{payload: payload}) do
       IO.puts(payload)
     end
   end
 
   defmodule FailConsumer do
-    use Errol.Consumer
-
     def consume(%Errol.Message{}), do: raise("Error")
   end
 
@@ -27,7 +23,7 @@ defmodule Errol.ConsumerTest do
     %{channel: channel, connection: connection, exchange: exchange}
   end
 
-  describe "consume/2" do
+  describe "receiving message" do
     setup %{channel: channel} do
       on_exit(fn ->
         {:ok, _} = AMQP.Queue.purge(channel, "test_queue")
@@ -41,22 +37,22 @@ defmodule Errol.ConsumerTest do
       channel: channel,
       exchange: exchange
     } do
-      {:ok, pid} =
-        TestConsumer.start_link(
+      self_pid = self()
+
+      {:ok, _pid} =
+        Server.start_link(
           connection: connection,
+          name: :test_queue_consumer,
           queue: "test_queue",
           exchange: exchange,
+          callback: fn _ -> send(self_pid, :assert) end,
           routing_key: "test"
         )
-
-      :timer.sleep(1000)
-
-      :erlang.trace(pid, true, [:receive])
 
       AMQP.Basic.publish(channel, "test_exchange", "test", "Hello amqp world!")
 
       assert 1 == AMQP.Queue.consumer_count(channel, "test_queue")
-      assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Hello amqp world!", _}}, 500
+      assert_receive :assert
     end
 
     test "requeues message on error", %{
@@ -65,10 +61,12 @@ defmodule Errol.ConsumerTest do
       exchange: exchange
     } do
       {:ok, pid} =
-        FailConsumer.start_link(
+        Server.start_link(
           connection: connection,
+          name: :fail_queue_consumer,
           queue: "fail_queue",
           exchange: exchange,
+          callback: &FailConsumer.consume/1,
           routing_key: "test.fail"
         )
 
@@ -83,40 +81,25 @@ defmodule Errol.ConsumerTest do
     end
   end
 
-  describe "handle_info/2" do
-    test "executes consume/2", %{channel: channel} do
-      self_pid = self()
-
-      capture_io(fn ->
-        Process.group_leader(self(), self_pid)
-
-        TestConsumer.handle_info(
-          {:basic_deliver, "Hello world", %{delivery_tag: "tag", redelivered: false}},
-          %{channel: channel, running_messages: %{}}
-        )
-      end)
-
-      assert_receive {:io_request, _, _, {:put_chars, :unicode, "Hello world\n"}}, 1000
-    end
-  end
-
-  describe "stop/0" do
+  describe ":unbind" do
     test "unbinds the queue from the exchange and stops consuming", %{
       channel: channel,
       connection: connection,
       exchange: exchange
     } do
       {:ok, _} =
-        TestConsumer.start_link(
+        Server.start_link(
           connection: connection,
+          name: :queue_to_unbind_consumer,
           queue: "queue_to_unbind",
           exchange: exchange,
+          callback: &TestConsumer.consume/1,
           routing_key: "test"
         )
 
       assert 1 == AMQP.Queue.consumer_count(channel, "queue_to_unbind")
 
-      :ok = TestConsumer.stop()
+      :ok = GenServer.call(:queue_to_unbind_consumer, :unbind)
 
       assert 0 == AMQP.Queue.consumer_count(channel, "queue_to_unbind")
     end
@@ -128,10 +111,12 @@ defmodule Errol.ConsumerTest do
       exchange: exchange
     } do
       assert {:ok, _pid} =
-               TestConsumer.start_link(
+               Server.start_link(
                  connection: connection,
+                 name: :success_queue_consumer,
                  queue: "success_queue",
                  exchange: exchange,
+                 callback: &TestConsumer.consume/1,
                  routing_key: "test.success"
                )
     end

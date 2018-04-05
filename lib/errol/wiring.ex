@@ -15,9 +15,9 @@ defmodule Errol.Wiring do
     end
   end
 
-  defmacro consume(queue, routing_key, consumer) do
+  defmacro consume(queue, routing_key, callback) do
     quote do
-      @wirings {unquote(queue), unquote(routing_key), unquote(consumer)}
+      @wirings {unquote(queue), unquote(routing_key), unquote(callback)}
     end
   end
 
@@ -26,14 +26,21 @@ defmodule Errol.Wiring do
       def init(_) do
         {:ok, connection} = AMQP.Connection.open(@connection)
 
-        Enum.map(@wirings, fn {queue, routing_key, consumer} ->
-          {consumer,
-           [
-             queue: queue,
-             routing_key: routing_key,
-             connection: connection,
-             exchange: {@exchange, @exchange_type}
-           ]}
+        Enum.map(@wirings, fn {queue, routing_key, callback} ->
+          Supervisor.child_spec(
+            {
+              Errol.Consumer.Server,
+              [
+                name: :"#{queue}_consumer",
+                queue: queue,
+                routing_key: routing_key,
+                connection: connection,
+                callback: callback,
+                exchange: {@exchange, @exchange_type}
+              ]
+            },
+            id: queue
+          )
         end)
         |> Supervisor.init(strategy: :one_for_one)
       end

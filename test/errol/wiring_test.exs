@@ -4,16 +4,9 @@ defmodule Errol.WiringTest do
 
   alias Errol.{Wiring, Consumer}
 
-  defmodule AllConsumer do
-    use Consumer
-
-    def consume(_message), do: :ok
-  end
-
-  defmodule TestConsumer do
-    use Consumer
-
-    def consume(_message), do: :ok
+  defmodule Consumer do
+    def consume_success(_message), do: :ok
+    def consume_all(_message), do: :ok
   end
 
   defmodule TestWiring do
@@ -22,8 +15,8 @@ defmodule Errol.WiringTest do
     @exchange "wiring_exchange"
     @exchange_type :topic
 
-    consume("message_success", "message.success", TestConsumer)
-    consume("message_all", "message.*", AllConsumer)
+    consume("message_success", "message.success", &Consumer.consume_success/1)
+    consume("message_all", "message.*", &Consumer.consume_all/1)
   end
 
   describe "start_link/1" do
@@ -45,10 +38,10 @@ defmodule Errol.WiringTest do
                queue: "message_success",
                routing_key: "message.success",
                exchange: "wiring_exchange"
-             } = TestConsumer.get_config()
+             } = GenServer.call(:message_success_consumer, :config)
 
       assert %{queue: "message_all", routing_key: "message.*", exchange: "wiring_exchange"} =
-               AllConsumer.get_config()
+               GenServer.call(:message_all_consumer, :config)
     end
   end
 end
