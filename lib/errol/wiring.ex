@@ -3,9 +3,10 @@ defmodule Errol.Wiring do
     quote do
       import unquote(__MODULE__)
       Module.register_attribute(__MODULE__, :wirings, accumulate: true)
-      Module.register_attribute(__MODULE__, :pipe_before, accumulate: true)
-      Module.register_attribute(__MODULE__, :pipe_after, accumulate: true)
-      Module.register_attribute(__MODULE__, :pipe_error, accumulate: true)
+      Module.register_attribute(__MODULE__, :group_name, [])
+      @group_name :default
+      Module.register_attribute(__MODULE__, :middlewares, accumulate: false)
+      @middlewares %{default: %{before: [], after: [], error: []}}
       Module.register_attribute(__MODULE__, :connection, [])
       @connection []
       @before_compile unquote(__MODULE__)
@@ -18,27 +19,48 @@ defmodule Errol.Wiring do
     end
   end
 
+  defmacro group(name, do: block) do
+    quote bind_quoted: [name: name, block: block] do
+      @group_name name
+      @middlewares put_in(@middlewares, [name], %{before: [], after: [], error: []})
+
+      block
+    end
+  end
+
   defmacro pipe_before(callback) do
     quote bind_quoted: [callback: callback] do
-      @pipe_before callback
+      @middlewares put_in(
+                     @middlewares,
+                     [@group_name, :before],
+                     get_in(@middlewares, [@group_name, :before]) ++ [callback]
+                   )
     end
   end
 
   defmacro pipe_after(callback) do
     quote bind_quoted: [callback: callback] do
-      @pipe_after callback
+      @middlewares put_in(
+                     @middlewares,
+                     [@group_name, :after],
+                     get_in(@middlewares, [@group_name, :after]) ++ [callback]
+                   )
     end
   end
 
   defmacro pipe_error(callback) do
     quote bind_quoted: [callback: callback] do
-      @pipe_error callback
+      @middlewares put_in(
+                     @middlewares,
+                     [@group_name, :error],
+                     get_in(@middlewares, [@group_name, :error]) ++ [callback]
+                   )
     end
   end
 
   defmacro consume(queue, routing_key, callback) do
     quote bind_quoted: [queue: queue, routing_key: routing_key, callback: callback] do
-      @wirings {queue, routing_key, callback}
+      @wirings {queue, routing_key, @group_name, callback}
     end
   end
 
@@ -48,7 +70,7 @@ defmodule Errol.Wiring do
         {:ok, connection} = AMQP.Connection.open(@connection)
 
         @wirings
-        |> Enum.map(fn {queue, routing_key, callback} ->
+        |> Enum.map(fn {queue, routing_key, group_name, callback} ->
           Supervisor.child_spec(
             {
               Errol.Consumer.Server,
@@ -58,9 +80,9 @@ defmodule Errol.Wiring do
                 routing_key: routing_key,
                 connection: connection,
                 callback: callback,
-                pipe_before: @pipe_before,
-                pipe_after: @pipe_after,
-                pipe_error: @pipe_error,
+                pipe_before: get_in(@middlewares, [group_name, :before]) || [],
+                pipe_after: get_in(@middlewares, [group_name, :after]) || [],
+                pipe_error: get_in(@middlewares, [group_name, :error]) || [],
                 exchange: {@exchange, @exchange_type}
               ]
             },
