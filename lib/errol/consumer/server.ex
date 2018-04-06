@@ -24,6 +24,9 @@ defmodule Errol.Consumer.Server do
            exchange: exchange,
            routing_key: routing_key,
            callback: Keyword.get(options, :callback),
+           pipe_before: Keyword.get(options, :pipe_before, []),
+           pipe_after: Keyword.get(options, :pipe_after, []),
+           pipe_error: Keyword.get(options, :pipe_error, []),
            running_messages: %{}
          }}
 
@@ -32,12 +35,23 @@ defmodule Errol.Consumer.Server do
     end
   end
 
+  defp apply_middlewares(message, middlewares) do
+    Enum.reduce(middlewares, message, fn middleware, message -> middleware.(message) end)
+  end
+
   def handle_info(
         {:basic_deliver, payload, %{delivery_tag: tag, redelivered: redelivered} = meta},
-        %{callback: callback} = state
+        %{callback: callback, pipe_before: pipe_before, pipe_after: pipe_after} = state
       ) do
     message = %Message{payload: payload, meta: meta}
-    {pid, _ref} = spawn_monitor(fn -> callback.(message) end)
+
+    {pid, _ref} =
+      spawn_monitor(fn ->
+        message
+        |> apply_middlewares(pipe_before)
+        |> callback.()
+        |> apply_middlewares(pipe_after)
+      end)
 
     {:noreply,
      %{state | running_messages: Map.put(state.running_messages, pid, {:running, message})}}
@@ -52,9 +66,11 @@ defmodule Errol.Consumer.Server do
     {:noreply, %{state | running_messages: running_messages}}
   end
 
-  def handle_info({:DOWN, _, :process, pid, _}, state) do
-    {{:running, %Message{meta: %{delivery_tag: tag, redelivered: redelivered}}}, running_messages} =
-      Map.pop(state.running_messages, pid)
+  def handle_info({:DOWN, _, :process, pid, _}, %{pipe_error: pipe_error} = state) do
+    {{:running, %Message{meta: %{delivery_tag: tag, redelivered: redelivered}} = message},
+     running_messages} = Map.pop(state.running_messages, pid)
+
+    apply_middlewares(message, pipe_error)
 
     unless redelivered, do: Logger.error("Requeueing message: #{tag}")
     :ok = AMQP.Basic.nack(state.channel, tag, requeue: !redelivered)

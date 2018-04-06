@@ -5,8 +5,9 @@ defmodule Errol.Consumer.ServerTest do
   alias Errol.Consumer.Server
 
   defmodule TestConsumer do
-    def consume(%Errol.Message{payload: payload}) do
+    def consume(%Errol.Message{payload: payload} = message) do
       IO.puts(payload)
+      message
     end
   end
 
@@ -43,7 +44,10 @@ defmodule Errol.Consumer.ServerTest do
           name: :test_queue_consumer,
           queue: "test_queue",
           exchange: exchange,
-          callback: fn _ -> send(self_pid, :assert) end,
+          callback: fn message ->
+            send(self_pid, :assert)
+            message
+          end,
           routing_key: "test"
         )
 
@@ -76,6 +80,62 @@ defmodule Errol.Consumer.ServerTest do
 
       assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Fail!", %{redelivered: true}}},
                      1000
+    end
+
+    test "applies pipe_before and pipe_after middlewares to messages", %{
+      connection: connection,
+      channel: channel,
+      exchange: exchange
+    } do
+      self_pid = self()
+
+      {:ok, _pid} =
+        Server.start_link(
+          connection: connection,
+          name: :success_queue_consumer,
+          queue: "test_queue",
+          exchange: exchange,
+          callback: fn message ->
+            send(self_pid, {:assert, message.payload})
+            message
+          end,
+          pipe_before: [fn message -> %Errol.Message{message | payload: "replaced payload"} end],
+          pipe_after: [
+            fn message ->
+              send(self_pid, {:assert_after, message.payload})
+              message
+            end
+          ],
+          routing_key: "test.success"
+        )
+
+      AMQP.Basic.publish(channel, "test_exchange", "test.success", "Hello amqp world!")
+
+      assert_receive {:assert, "replaced payload"}
+      assert_receive {:assert_after, "replaced payload"}
+    end
+
+    test "applies pipe_error middlewares to messages", %{
+      connection: connection,
+      channel: channel,
+      exchange: exchange
+    } do
+      self_pid = self()
+
+      {:ok, _pid} =
+        Server.start_link(
+          connection: connection,
+          name: :success_queue_consumer,
+          queue: "test_queue",
+          exchange: exchange,
+          callback: &FailConsumer.consume/1,
+          pipe_error: [fn _ -> send(self_pid, :assert_error) end],
+          routing_key: "test.success"
+        )
+
+      AMQP.Basic.publish(channel, "test_exchange", "test.success", "Hello amqp world!")
+
+      assert_receive :assert_error
     end
   end
 
@@ -112,7 +172,7 @@ defmodule Errol.Consumer.ServerTest do
                Server.start_link(
                  connection: connection,
                  name: :success_queue_consumer,
-                 queue: "success_queue",
+                 queue: "test_queue",
                  exchange: exchange,
                  callback: &TestConsumer.consume/1,
                  routing_key: "test.success"
