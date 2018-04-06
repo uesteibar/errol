@@ -42,6 +42,9 @@ defmodule Sample.Wiring do
 
   # You can pass a reference to a function with arity of 1
   consume "my_awesome_queue", "my.routing.key", &Sample.AwesomeConsumer.consume/1
+
+  # or even an anonymous function
+  consume "another_queue", "another.routing.key", fn message -> ... end
 end
 ```
 

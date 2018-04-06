@@ -59,8 +59,13 @@ defmodule Errol.Wiring do
   end
 
   defmacro consume(queue, routing_key, callback) do
-    quote bind_quoted: [queue: queue, routing_key: routing_key, callback: callback] do
-      @wirings {queue, routing_key, @group_name, callback}
+    queue = String.to_atom(queue)
+
+    quote do
+      @wirings {unquote(queue), unquote(routing_key), @group_name}
+      def unquote(queue)() do
+        unquote(callback)
+      end
     end
   end
 
@@ -70,13 +75,15 @@ defmodule Errol.Wiring do
         {:ok, connection} = AMQP.Connection.open(@connection)
 
         @wirings
-        |> Enum.map(fn {queue, routing_key, group_name, callback} ->
+        |> Enum.map(fn {queue, routing_key, group_name} ->
+          callback = apply(__MODULE__, queue, [])
+
           Supervisor.child_spec(
             {
               Errol.Consumer.Server,
               [
                 name: :"#{queue}_consumer",
-                queue: queue,
+                queue: Atom.to_string(queue),
                 routing_key: routing_key,
                 connection: connection,
                 callback: callback,
