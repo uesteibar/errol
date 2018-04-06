@@ -16,8 +16,8 @@ defmodule Errol.Wiring do
   end
 
   defmacro consume(queue, routing_key, callback) do
-    quote do
-      @wirings {unquote(queue), unquote(routing_key), unquote(callback)}
+    quote bind_quoted: [queue: queue, routing_key: routing_key, callback: callback] do
+      @wirings {queue, routing_key, callback}
     end
   end
 

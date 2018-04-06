@@ -27,8 +27,6 @@ defmodule Errol.Consumer.ServerTest do
     setup %{channel: channel} do
       on_exit(fn ->
         {:ok, _} = AMQP.Queue.purge(channel, "test_queue")
-        {:ok, _} = AMQP.Queue.purge(channel, "fail_queue")
-        {:ok, _} = AMQP.Queue.purge(channel, "queue_to_unbind")
       end)
     end
 
@@ -64,7 +62,7 @@ defmodule Errol.Consumer.ServerTest do
         Server.start_link(
           connection: connection,
           name: :fail_queue_consumer,
-          queue: "fail_queue",
+          queue: "test_queue",
           exchange: exchange,
           callback: &FailConsumer.consume/1,
           routing_key: "test.fail"
@@ -91,17 +89,17 @@ defmodule Errol.Consumer.ServerTest do
         Server.start_link(
           connection: connection,
           name: :queue_to_unbind_consumer,
-          queue: "queue_to_unbind",
+          queue: "test_queue",
           exchange: exchange,
           callback: &TestConsumer.consume/1,
           routing_key: "test"
         )
 
-      assert 1 == AMQP.Queue.consumer_count(channel, "queue_to_unbind")
+      assert 1 == AMQP.Queue.consumer_count(channel, "test_queue")
 
       :ok = GenServer.call(:queue_to_unbind_consumer, :unbind)
 
-      assert 0 == AMQP.Queue.consumer_count(channel, "queue_to_unbind")
+      assert 0 == AMQP.Queue.consumer_count(channel, "test_queue")
     end
   end
 
