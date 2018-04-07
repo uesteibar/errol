@@ -24,6 +24,7 @@ defmodule Errol.MixProject do
   defp deps do
     [
       {:amqp, "~> 1.0"},
+      {:jason, "~> 1.0", optional: true},
       {:coverex, "~> 1.4", only: :test},
       {:mock, "~> 0.3.0", only: :test}
     ]
