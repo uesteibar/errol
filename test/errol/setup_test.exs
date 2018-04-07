@@ -1,6 +1,5 @@
 defmodule Errol.SetupTest do
   use ExUnit.Case, async: false
-  doctest Errol.Setup
 
   import Mock
 
@@ -20,16 +19,16 @@ defmodule Errol.SetupTest do
   describe "set_consumer/1" do
     test "when AMQP.Channel.open/1 fails", %{options: options} do
       with_mock AMQP.Channel, open: fn _ -> {:error, :closing} end do
-        assert {:error, _} = Setup.set_consumer(options)
+        assert {:error, :closing} = Setup.set_consumer(options)
       end
     end
 
     test "when AMQP.Exchange.declare/3 fails", %{options: options} do
       with_mocks [
         {AMQP.Channel, [], open: fn _ -> {:ok, %AMQP.Channel{}} end},
-        {AMQP.Exchange, [], declare: fn _, _, _ -> {:error, "Super error"} end}
+        {AMQP.Exchange, [], declare: fn _, _, _ -> {:error, :exchange_error} end}
       ] do
-        assert {:error, _} = Setup.set_consumer(options)
+        assert {:error, :exchange_error} = Setup.set_consumer(options)
       end
     end
 
@@ -37,9 +36,9 @@ defmodule Errol.SetupTest do
       with_mocks [
         {AMQP.Channel, [], open: fn _ -> {:ok, %AMQP.Channel{}} end},
         {AMQP.Exchange, [], declare: fn _, _, _ -> :ok end},
-        {AMQP.Queue, [], declare: fn _, _ -> {:error, "Error"} end}
+        {AMQP.Queue, [], declare: fn _, _ -> {:error, :queue_error} end}
       ] do
-        assert {:error, _} = Setup.set_consumer(options)
+        assert {:error, :queue_error} = Setup.set_consumer(options)
       end
     end
 
@@ -48,9 +47,9 @@ defmodule Errol.SetupTest do
         {AMQP.Channel, [], open: fn _ -> {:ok, %AMQP.Channel{}} end},
         {AMQP.Exchange, [], declare: fn _, _, _ -> :ok end},
         {AMQP.Queue, [], declare: fn _, _ -> {:ok, %{}} end},
-        {AMQP.Queue, [], bind: fn _, _, _, _ -> {:error, "Error"} end}
+        {AMQP.Queue, [], bind: fn _, _, _, _ -> {:error, :bind_error} end}
       ] do
-        assert {:error, _} = Setup.set_consumer(options)
+        assert {:error, :bind_error} = Setup.set_consumer(options)
       end
     end
 
@@ -60,9 +59,9 @@ defmodule Errol.SetupTest do
         {AMQP.Exchange, [], declare: fn _, _, _ -> :ok end},
         {AMQP.Queue, [], declare: fn _, _ -> {:ok, %{}} end},
         {AMQP.Queue, [], bind: fn _, _, _, _ -> :ok end},
-        {AMQP.Basic, [], consume: fn _, _ -> {:error, "Error"} end}
+        {AMQP.Basic, [], consume: fn _, _ -> {:error, :consume_error} end}
       ] do
-        assert {:error, _} = Setup.set_consumer(options)
+        assert {:error, :consume_error} = Setup.set_consumer(options)
       end
     end
 
@@ -74,7 +73,14 @@ defmodule Errol.SetupTest do
         {AMQP.Queue, [], bind: fn _, _, _, _ -> :ok end},
         {AMQP.Basic, [], consume: fn _, _ -> {:ok, "queue_name"} end}
       ] do
-        assert {:ok, _} = Setup.set_consumer(options)
+        assert {:ok,
+                %{
+                  channel: %AMQP.Channel{},
+                  connection: %AMQP.Connection{},
+                  exchange: {"test_exchange", :topic},
+                  queue: "setup_test_queue",
+                  routing_key: "setup.all"
+                }} = Setup.set_consumer(options)
       end
     end
   end

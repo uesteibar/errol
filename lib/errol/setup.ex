@@ -2,15 +2,14 @@ defmodule Errol.Setup do
   @moduledoc false
 
   def set_consumer(options) do
-    options = %{
-      connection: Keyword.get(options, :connection),
-      queue: Keyword.get(options, :queue),
-      exchange: Keyword.get(options, :exchange),
-      routing_key: Keyword.get(options, :routing_key, "*"),
-      channel: nil
-    }
-
-    {:ok, options}
+    {:ok,
+     %{
+       connection: Keyword.get(options, :connection),
+       queue: Keyword.get(options, :queue),
+       exchange: Keyword.get(options, :exchange),
+       routing_key: Keyword.get(options, :routing_key, "*"),
+       channel: nil
+     }}
     |> open_channel()
     |> declare_exchange()
     |> declare_queue()
