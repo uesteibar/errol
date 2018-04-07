@@ -1,4 +1,36 @@
 defmodule Errol.Wiring do
+  @moduledoc """
+  This module allows to declare consumers for your rabbitmq routing keys
+  using the following DSL.
+
+  After your wirigin module is started (using `start_link/1`), it will
+  spin up a supervised process (`Errol.Consumer.Server`) for each consumer.
+
+  ## Example
+
+  ```elixir
+  defmodule MyWiring do
+    use Wiring
+
+    @exchange "/users"
+    @exchange_type :topic
+
+    group :account do
+      pipe_before(&Errol.Middleware.Json.parse/1)
+
+      consume("users_account_created", "users.account.created", &UsersConsumer.account_created/1)
+      consume("users_account_updated", "users.account.updated", &UsersConsumer.account_updated/1)
+      consume("users_profile_updated", "users.profile.updated", &UsersConsumer.profile_updated/1)
+    end
+
+    group :photos do
+      consume("users_profile_photo_uploaded", "users.profile.photo.uploaded", fn message -> ... end)
+    end
+  end
+  ```
+  """
+
+  @doc false
   defmacro __using__(_) do
     quote do
       import unquote(__MODULE__)
@@ -19,6 +51,27 @@ defmodule Errol.Wiring do
     end
   end
 
+  @doc """
+  Allows to group multiple consumer declarations. This can be useful to scope
+  certain middlewares to a specific set of consumers.
+
+  ## Example
+
+  ```elixir
+    group :account do
+      # This middleware will only run for consumers on this group
+      pipe_before(&Errol.Middleware.Json.parse/1)
+
+      consume("users_account_created", "users.account.created", &UsersConsumer.account_created/1)
+      consume("users_account_updated", "users.account.updated", &UsersConsumer.account_updated/1)
+      consume("users_profile_updated", "users.profile.updated", &UsersConsumer.profile_updated/1)
+    end
+
+    group :photos do
+      consume("users_profile_photo_uploaded", "users.profile.photo.uploaded", fn message -> ... end)
+    end
+  ```
+  """
   defmacro group(name, do: block) do
     quote bind_quoted: [name: name, block: block] do
       @group_name name
@@ -28,6 +81,19 @@ defmodule Errol.Wiring do
     end
   end
 
+  @doc """
+  Sets a middleware function that will be run **before** the message is consumed.
+
+  ## Example
+
+  ```elixir
+  # you can pass a reference to a function
+  pipe_before &Errol.Middleware.Json.parse/1
+
+  # or an anonymous function
+  pipe_before fn message -> ... end
+  ```
+  """
   @spec pipe_before(
           callback :: (Errol.Message.t() -> {:ok, Errol.Message.t()} | {:error, reason :: any()})
         ) :: no_return()
@@ -41,6 +107,19 @@ defmodule Errol.Wiring do
     end
   end
 
+  @doc """
+  Sets a middleware function that will be run **after** the message is consumed **successfuly**.
+
+  ## Example
+
+  ```elixir
+  # you can pass a reference to a function
+  pipe_after &Notifications.notify_success/1
+
+  # or an anonymous function
+  pipe_after fn message -> ... end
+  ```
+  """
   @spec pipe_after(
           callback :: (Errol.Message.t() -> {:ok, Errol.Message.t()} | {:error, reason :: any()})
         ) :: no_return()
@@ -54,6 +133,19 @@ defmodule Errol.Wiring do
     end
   end
 
+  @doc """
+  Sets a middleware function that will be run if either a _before middleware_ or the _consumer callback_ **fails**.
+
+  ## Example
+
+  ```elixir
+  # you can pass a reference to a function
+  pipe_error &MyErrorLogger.log/1
+
+  # or an anonymous function
+  pipe_error fn message -> ... end
+  ```
+  """
   @spec pipe_error(
           callback :: (Errol.Message.t() -> {:ok, Errol.Message.t()} | {:error, reason :: any()})
         ) :: no_return()
@@ -67,6 +159,20 @@ defmodule Errol.Wiring do
     end
   end
 
+  @doc """
+  Declares a consumer that will be spin up as a `Errol.Consumer.Server` process
+  and supervised when your wiring module is started using `start_link/1`.
+
+  ## Example
+
+  ```elixir
+  # you can pass a reference to a function
+  consume("users_profile_updated", "users.profile.updated", &UsersConsumer.profile_updated/1)
+
+  # or an anonymous function
+  consume("users_profile_photo_uploaded", "users.profile.photo.uploaded", fn message -> ... end)
+  ```
+  """
   @spec consume(
           queue :: String.t(),
           routing_key :: String.t(),
