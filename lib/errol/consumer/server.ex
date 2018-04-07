@@ -30,8 +30,8 @@ defmodule Errol.Consumer.Server do
            running_messages: %{}
          }}
 
-      _ ->
-        {:stop, :normal, "Consumer couldn't be set up"}
+      {:error, reason} ->
+        {:stop, reason}
     end
   end
 
@@ -54,8 +54,6 @@ defmodule Errol.Consumer.Server do
 
     {pid, _ref} =
       spawn_monitor(fn ->
-        {:ok, message}
-
         {status, _} =
           with {:ok, message} <- apply_middlewares(message, pipe_before),
                message <- callback.(message),
@@ -73,9 +71,9 @@ defmodule Errol.Consumer.Server do
   def handle_info({:DOWN, _, :process, _, :normal}, state), do: {:noreply, state}
 
   def handle_info({:DOWN, _, :process, pid, _}, state) do
-    new_state = processing_failed(pid, state)
+    GenServer.cast(self(), {:processed, {:error, pid}})
 
-    {:noreply, new_state}
+    {:noreply, state}
   end
 
   # Confirmation sent by the broker after registering this process as a consumer
