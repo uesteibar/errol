@@ -28,6 +28,9 @@ defmodule Errol.Wiring do
     end
   end
 
+  @spec pipe_before(
+          callback :: (Errol.Message.t() -> {:ok, Errol.Message.t()} | {:error, reason :: any()})
+        ) :: no_return()
   defmacro pipe_before(callback) do
     quote bind_quoted: [callback: callback] do
       @middlewares put_in(
@@ -38,6 +41,9 @@ defmodule Errol.Wiring do
     end
   end
 
+  @spec pipe_after(
+          callback :: (Errol.Message.t() -> {:ok, Errol.Message.t()} | {:error, reason :: any()})
+        ) :: no_return()
   defmacro pipe_after(callback) do
     quote bind_quoted: [callback: callback] do
       @middlewares put_in(
@@ -48,6 +54,9 @@ defmodule Errol.Wiring do
     end
   end
 
+  @spec pipe_error(
+          callback :: (Errol.Message.t() -> {:ok, Errol.Message.t()} | {:error, reason :: any()})
+        ) :: no_return()
   defmacro pipe_error(callback) do
     quote bind_quoted: [callback: callback] do
       @middlewares put_in(
@@ -58,6 +67,11 @@ defmodule Errol.Wiring do
     end
   end
 
+  @spec consume(
+          queue :: String.t(),
+          routing_key :: String.t(),
+          callback :: (Errol.Message.t() -> Errol.Message.t())
+        ) :: no_return()
   defmacro consume(queue, routing_key, callback) do
     queue = String.to_atom(queue)
 
@@ -69,6 +83,7 @@ defmodule Errol.Wiring do
     end
   end
 
+  @doc false
   defmacro __before_compile__(_env) do
     quote do
       def init(_) do
