@@ -1,6 +1,7 @@
 defmodule Errol.Setup do
   @moduledoc false
 
+  @spec set_consumer(keyword(any())) :: {:ok, map()}
   def set_consumer(options) do
     {:ok,
      %{
