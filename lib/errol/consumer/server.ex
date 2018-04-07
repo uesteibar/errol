@@ -4,6 +4,7 @@ defmodule Errol.Consumer.Server do
 
   alias Errol.{Setup, Message}
 
+  @spec start_link(options :: keyword()) :: {:ok, pid()} | {:error, reason :: atom()}
   def start_link(args) do
     GenServer.start_link(__MODULE__, args, name: Keyword.get(args, :name))
   end
@@ -131,5 +132,10 @@ defmodule Errol.Consumer.Server do
     :ok = AMQP.Basic.nack(state.channel, tag, requeue: !redelivered)
 
     %{state | running_messages: running_messages}
+  end
+
+  @spec unbind(consume_name :: atom()) :: :ok
+  def unbind(consumer_name) do
+    GenServer.call(consumer_name, :unbind)
   end
 end

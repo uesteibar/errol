@@ -180,7 +180,7 @@ defmodule Errol.Consumer.ServerTest do
     end
   end
 
-  describe ":unbind" do
+  describe "unbind/1" do
     test "unbinds the queue from the exchange and stops consuming", %{
       channel: channel,
       connection: connection,
@@ -198,7 +198,7 @@ defmodule Errol.Consumer.ServerTest do
 
       assert 1 == AMQP.Queue.consumer_count(channel, queue)
 
-      :ok = GenServer.call(:queue_to_unbind_consumer, :unbind)
+      :ok = Server.unbind(:queue_to_unbind_consumer)
 
       assert 0 == AMQP.Queue.consumer_count(channel, queue)
     end
