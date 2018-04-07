@@ -36,46 +36,46 @@ defmodule Errol.Consumer.Server do
   end
 
   defp apply_middlewares(message, middlewares) do
-    Enum.reduce(middlewares, message, fn middleware, message -> middleware.(message) end)
+    Enum.reduce(middlewares, {:ok, message}, fn middleware, {status, message} ->
+      if status == :ok do
+        middleware.(message)
+      else
+        {status, message}
+      end
+    end)
   end
 
   def handle_info(
-        {:basic_deliver, payload, %{delivery_tag: tag, redelivered: redelivered} = meta},
+        {:basic_deliver, payload, meta},
         %{callback: callback, pipe_before: pipe_before, pipe_after: pipe_after} = state
       ) do
     message = %Message{payload: payload, meta: meta}
+    monitor_pid = self()
 
     {pid, _ref} =
       spawn_monitor(fn ->
-        message
-        |> apply_middlewares(pipe_before)
-        |> callback.()
-        |> apply_middlewares(pipe_after)
+        {:ok, message}
+
+        {status, _} =
+          with {:ok, message} <- apply_middlewares(message, pipe_before),
+               message <- callback.(message),
+               {:ok, message} <- apply_middlewares(message, pipe_after) do
+            {:ok, message}
+          end
+
+        GenServer.cast(monitor_pid, {:processed, {status, self()}})
       end)
 
     {:noreply,
      %{state | running_messages: Map.put(state.running_messages, pid, {:running, message})}}
   end
 
-  def handle_info({:DOWN, _, :process, pid, :normal}, state) do
-    {{:running, %Message{meta: %{delivery_tag: tag}}}, running_messages} =
-      Map.pop(state.running_messages, pid)
+  def handle_info({:DOWN, _, :process, _, :normal}, state), do: {:noreply, state}
 
-    :ok = AMQP.Basic.ack(state.channel, tag)
+  def handle_info({:DOWN, _, :process, pid, _}, state) do
+    new_state = processing_failed(pid, state)
 
-    {:noreply, %{state | running_messages: running_messages}}
-  end
-
-  def handle_info({:DOWN, _, :process, pid, _}, %{pipe_error: pipe_error} = state) do
-    {{:running, %Message{meta: %{delivery_tag: tag, redelivered: redelivered}} = message},
-     running_messages} = Map.pop(state.running_messages, pid)
-
-    apply_middlewares(message, pipe_error)
-
-    unless redelivered, do: Logger.error("Requeueing message: #{tag}")
-    :ok = AMQP.Basic.nack(state.channel, tag, requeue: !redelivered)
-
-    {:noreply, %{state | running_messages: running_messages}}
+    {:noreply, new_state}
   end
 
   # Confirmation sent by the broker after registering this process as a consumer
@@ -106,5 +106,32 @@ defmodule Errol.Consumer.Server do
 
   def handle_call(:config, _from, state) do
     {:reply, state, state}
+  end
+
+  def handle_cast({:processed, {:ok, pid}}, state) do
+    {{:running, %Message{meta: %{delivery_tag: tag}}}, running_messages} =
+      Map.pop(state.running_messages, pid)
+
+    :ok = AMQP.Basic.ack(state.channel, tag)
+
+    {:noreply, %{state | running_messages: running_messages}}
+  end
+
+  def handle_cast({:processed, {:error, pid}}, state) do
+    new_state = processing_failed(pid, state)
+
+    {:noreply, new_state}
+  end
+
+  def processing_failed(pid, %{pipe_error: pipe_error} = state) do
+    {{:running, %Message{meta: %{delivery_tag: tag, redelivered: redelivered}} = message},
+     running_messages} = Map.pop(state.running_messages, pid)
+
+    apply_middlewares(message, pipe_error)
+
+    unless redelivered, do: Logger.error("Requeueing message: #{tag}")
+    :ok = AMQP.Basic.nack(state.channel, tag, requeue: !redelivered)
+
+    %{state | running_messages: running_messages}
   end
 end

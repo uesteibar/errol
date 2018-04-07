@@ -99,11 +99,15 @@ defmodule Errol.Consumer.ServerTest do
             send(self_pid, {:assert, message.payload})
             message
           end,
-          pipe_before: [fn message -> %Errol.Message{message | payload: "replaced payload"} end],
+          pipe_before: [
+            fn message ->
+              {:ok, %Errol.Message{message | payload: "replaced payload"}}
+            end
+          ],
           pipe_after: [
             fn message ->
               send(self_pid, {:assert_after, message.payload})
-              message
+              {:ok, message}
             end
           ],
           routing_key: "test.success"
@@ -129,13 +133,47 @@ defmodule Errol.Consumer.ServerTest do
           queue: "test_queue",
           exchange: exchange,
           callback: &FailConsumer.consume/1,
-          pipe_error: [fn _ -> send(self_pid, :assert_error) end],
+          pipe_error: [
+            fn message ->
+              send(self_pid, :assert_error)
+              {:ok, message}
+            end
+          ],
           routing_key: "test.success"
         )
 
       AMQP.Basic.publish(channel, "test_exchange", "test.success", "Hello amqp world!")
 
       assert_receive :assert_error
+    end
+
+    test "failing middleware requeues message", %{
+      channel: channel,
+      connection: connection,
+      exchange: exchange
+    } do
+      {:ok, pid} =
+        Server.start_link(
+          connection: connection,
+          name: :success_queue_consumer,
+          queue: "test_queue",
+          exchange: exchange,
+          callback: &TestConsumer.consume/1,
+          pipe_before: [
+            fn _ -> {:error, :unknown} end
+          ],
+          routing_key: "test.success"
+        )
+
+      :timer.sleep(1000)
+
+      :erlang.trace(pid, true, [:receive])
+
+      AMQP.Basic.publish(channel, "test_exchange", "test.success", "Failing middleware")
+
+      assert_receive {:trace, ^pid, :receive,
+                      {:basic_deliver, "Failing middleware", %{redelivered: true}}},
+                     1000
     end
   end
 
