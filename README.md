@@ -1,6 +1,6 @@
 # Errol
 
-An opinionated framework to define and orchestrate AMQP consumers.
+An opinionated framework to run and orchestrate [RabbitMQ](https://www.rabbitmq.com/) consumers.
 
 ## Index
 
@@ -34,23 +34,38 @@ To bind consumers to queue, you can use the `Errol.Wiring` module:
 
 ```elixir
 defmodule Sample.Wiring do
-  use Errol.Wiring
+  use Wiring
 
   @connection "amqp://guest:guest@localhost"
-  @exchange "wiring_exchange"
+  @exchange "/users"
   @exchange_type :topic
 
-  # You can pass a reference to a function with arity of 1
-  consume "my_awesome_queue", "my.routing.key", &Sample.AwesomeConsumer.consume/1
+  # Use pipe_before/1, pipe_after/1 or pipe_error/1 to run middleware functions
+  # middlewares declared outside of a group will run for every consumer
+  pipe_before(&Sample.StatisticsMiddleware.track/1)
+  
+  # Use the `group` macro to group consumers with specific middleware
+  group :account do
+    pipe_before(&Errol.Middleware.Json.parse/1)
 
-  # or even an anonymous function
-  consume "another_queue", "another.routing.key", fn message -> ... end
+    # You can pass a reference to a function with arity of 1
+    consume("account_created", "users.account.created", &UsersConsumer.account_created/1)
+
+    # or even an anonymous function
+    consume("account_updated", "users.account.updated", fn message -> ... end)
+  end
+
+  group :photos do
+    pipe_before(&Sample.ImagesMiddleware.uncompress/1)
+
+    consume("profile_photo_uploaded", "users.profile.photo.uploaded", fn message -> ... end)
+  end
 end
 ```
 
-For the `@connection` attribute, you can pass anything that fits what the [amqp](https://hexdocs.pm/amqp/1.0.2/AMQP.Connection.html#open/1) hex expects on `AMQP.Connection.open/1`.
+For the `@connection` attribute, you can pass anything that fits what the [amqp](https://hexdocs.pm/amqp) hex expects on [`AMQP.Connection.open/1`](https://hexdocs.pm/amqp/1.0.2/AMQP.Connection.html#open/1).
 
-At this point, the only thing you have to do is run `Sample.Wiring` as a _supervisor_ in your `application.ex` file:
+At this point, the only thing left is to run `Sample.Wiring` as a _supervisor_ in your `application.ex` file:
 
 ```elixir
 defmodule Sample.Application do
@@ -61,6 +76,7 @@ defmodule Sample.Application do
 
     children = [
       supervisor(Sample.Wiring, []),
+      ...
     ]
 
     opts = [strategy: :one_for_one, name: Sample.Supervisor]
@@ -69,32 +85,32 @@ defmodule Sample.Application do
 end
 ```
 
-Voila! This will spin up the following supervision tree:
+Voilà! This will spin up the following supervision tree:
 
 ```
 
-                        --------------------
-                       | Sample.Application |
-                        --------------------
-                                 |
-                                 |
-                          ---------------
-                         | Sample.Wiring |
-                          ---------------
-                                 |
-                   ______________|______________
-                  |                             |
-                  |                             |
-      -------------------------       -------------------------
-     | :another_queue_consumer |     | :another_queue_consumer |
-      -------------------------       -------------------------
-        .     .     .     .             .    .    .    .    .
-        .     .     .     .             .    .    .    .    .
-        .     .     .     .             .    .    .    .    .
-        .     .     .     .             .    .    .    .    .
-        .     .     .     .             .    .    .    .    .
+                                      --------------------
+                                     | Sample.Application |
+                                      --------------------
+                                               |
+                                               |
+                                        ---------------
+                                       | Sample.Wiring |
+                                        ---------------
+                                               |
+                  _____________________________|_____________________________
+                 |                             |                             |
+                 |                             |                             |
+   ---------------------------    ---------------------------    -------------------------
+  | :account_created_consumer |  | :account_updated_consumer |  | :profile_photo_uploaded |
+   ---------------------------    ---------------------------    -------------------------
+       .     .     .     .           .    .    .    .    .          .     .     .     .
+       .     .     .     .           .    .    .    .    .          .     .     .     .
+       .     .     .     .           .    .    .    .    .          .     .     .     .
+       .     .     .     .           .    .    .    .    .          .     .     .     .
+       .     .     .     .           .    .    .    .    .          .     .     .     .
 
-           New monitored process per each message received
+                       New monitored process per each message received
 
 
 ```
