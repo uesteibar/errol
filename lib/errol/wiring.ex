@@ -35,11 +35,10 @@ defmodule Errol.Wiring do
     quote do
       import unquote(__MODULE__)
       Module.register_attribute(__MODULE__, :wirings, accumulate: true)
-      Module.register_attribute(__MODULE__, :group_name, [])
-      @group_name :default
-      Module.register_attribute(__MODULE__, :middlewares, accumulate: false)
-      @middlewares %{default: %{before: [], after: [], error: []}}
-      Module.register_attribute(__MODULE__, :connection, [])
+      Module.register_attribute(__MODULE__, :middlewares, accumulate: true)
+      Module.register_attribute(__MODULE__, :group_name, accumulate: false)
+      @group_name :errol_default
+      Module.register_attribute(__MODULE__, :connection, accumulate: false)
       @connection []
       @before_compile unquote(__MODULE__)
 
@@ -73,11 +72,10 @@ defmodule Errol.Wiring do
   ```
   """
   defmacro group(name, do: block) do
-    quote bind_quoted: [name: name, block: block] do
-      @group_name name
-      @middlewares put_in(@middlewares, [name], %{before: [], after: [], error: []})
+    quote do
+      @group_name unquote(name)
 
-      block
+      unquote(block)
     end
   end
 
@@ -99,11 +97,7 @@ defmodule Errol.Wiring do
         ) :: no_return()
   defmacro pipe_before(callback) do
     quote bind_quoted: [callback: callback] do
-      @middlewares put_in(
-                     @middlewares,
-                     [@group_name, :before],
-                     get_in(@middlewares, [@group_name, :before]) ++ [callback]
-                   )
+      @middlewares {@group_name, :before, callback}
     end
   end
 
@@ -125,11 +119,7 @@ defmodule Errol.Wiring do
         ) :: no_return()
   defmacro pipe_after(callback) do
     quote bind_quoted: [callback: callback] do
-      @middlewares put_in(
-                     @middlewares,
-                     [@group_name, :after],
-                     get_in(@middlewares, [@group_name, :after]) ++ [callback]
-                   )
+      @middlewares {@group_name, :after, callback}
     end
   end
 
@@ -151,11 +141,7 @@ defmodule Errol.Wiring do
         ) :: no_return()
   defmacro pipe_error(callback) do
     quote bind_quoted: [callback: callback] do
-      @middlewares put_in(
-                     @middlewares,
-                     [@group_name, :error],
-                     get_in(@middlewares, [@group_name, :error]) ++ [callback]
-                   )
+      @middlewares {@group_name, :error, callback}
     end
   end
 
@@ -192,6 +178,10 @@ defmodule Errol.Wiring do
   @doc false
   defmacro __before_compile__(_env) do
     quote do
+      defp get_middlewares_for(group_name, scope) do
+        for {^group_name, ^scope, fun} <- @middlewares, do: fun
+      end
+
       def init(_) do
         {:ok, connection} = AMQP.Connection.open(@connection)
 
@@ -208,9 +198,15 @@ defmodule Errol.Wiring do
                 routing_key: routing_key,
                 connection: connection,
                 callback: callback,
-                pipe_before: get_in(@middlewares, [group_name, :before]) || [],
-                pipe_after: get_in(@middlewares, [group_name, :after]) || [],
-                pipe_error: get_in(@middlewares, [group_name, :error]) || [],
+                pipe_before:
+                  get_middlewares_for(:errol_default, :before) ++
+                    get_middlewares_for(group_name, :before),
+                pipe_after:
+                  get_middlewares_for(:errol_default, :after) ++
+                    get_middlewares_for(group_name, :after),
+                pipe_error:
+                  get_middlewares_for(:errol_default, :error) ++
+                    get_middlewares_for(group_name, :error),
                 exchange: {@exchange, @exchange_type}
               ]
             },

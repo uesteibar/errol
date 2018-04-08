@@ -10,6 +10,7 @@ defmodule Errol.WiringTest do
   end
 
   defmodule Middleware do
+    def run_before_default(_message), do: :ok
     def run_before(_message), do: :ok
     def run_after(_message), do: :ok
     def run_error(_message), do: :ok
@@ -20,6 +21,8 @@ defmodule Errol.WiringTest do
 
     @exchange "wiring_exchange"
     @exchange_type :topic
+
+    pipe_before(&Middleware.run_before_default/1)
 
     group :success do
       pipe_before(&Middleware.run_before/1)
@@ -56,12 +59,13 @@ defmodule Errol.WiringTest do
                routing_key: "message.success",
                exchange: "wiring_exchange",
                callback: callback,
-               pipe_before: [before_callback],
+               pipe_before: [before_callback_default, before_callback],
                pipe_after: [after_callback],
                pipe_error: []
              } = GenServer.call(:message_success_consumer, :config)
 
       assert callback == (&Consumer.consume_success/1)
+      assert before_callback_default == (&Errol.WiringTest.Middleware.run_before_default/1)
       assert before_callback == (&Errol.WiringTest.Middleware.run_before/1)
       assert after_callback == (&Errol.WiringTest.Middleware.run_after/1)
 
@@ -70,12 +74,13 @@ defmodule Errol.WiringTest do
                routing_key: "message.*",
                exchange: "wiring_exchange",
                callback: callback,
-               pipe_before: [],
+               pipe_before: [before_callback_default],
                pipe_after: [],
                pipe_error: [error_callback]
              } = GenServer.call(:message_all_consumer, :config)
 
       assert callback == (&Consumer.consume_all/1)
+      assert before_callback_default == (&Errol.WiringTest.Middleware.run_before_default/1)
       assert error_callback == (&Errol.WiringTest.Middleware.run_error/1)
 
       assert %{
@@ -83,11 +88,12 @@ defmodule Errol.WiringTest do
                routing_key: "message.success",
                exchange: "wiring_exchange",
                callback: callback,
-               pipe_before: [],
+               pipe_before: [before_callback_default],
                pipe_after: [],
                pipe_error: [error_callback]
              } = GenServer.call(:message_success_anonymous_consumer, :config)
 
+      assert before_callback_default == (&Errol.WiringTest.Middleware.run_before_default/1)
       assert error_callback == (&Errol.WiringTest.Middleware.run_error/1)
       assert is_function(callback)
       assert callback.(:ok) == :ok
