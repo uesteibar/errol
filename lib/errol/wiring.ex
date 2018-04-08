@@ -3,8 +3,9 @@ defmodule Errol.Wiring do
   This module allows to declare consumers for your rabbitmq routing keys
   using the following DSL.
 
-  After your wirigin module is started (using `start_link/1`), it will
-  spin up a supervised process (`Errol.Consumer.Server`) for each consumer.
+  After your _Wiring_ module is started (using `start_link/1` that will be
+  generated at compile time), it will spin up a supervised process
+  (`Errol.Consumer.Server`) for each consumer.
 
   ## Example
 
@@ -12,6 +13,7 @@ defmodule Errol.Wiring do
   defmodule MyWiring do
     use Wiring
 
+    @connection "amqp://guest:guest@localhost"
     @exchange "/users"
     @exchange_type :topic
 
@@ -85,11 +87,7 @@ defmodule Errol.Wiring do
   ## Example
 
   ```elixir
-  # you can pass a reference to a function
   pipe_before &Errol.Middleware.Json.parse/1
-
-  # or an anonymous function
-  pipe_before fn message -> ... end
   ```
   """
   @spec pipe_before(
@@ -107,11 +105,7 @@ defmodule Errol.Wiring do
   ## Example
 
   ```elixir
-  # you can pass a reference to a function
   pipe_after &Notifications.notify_success/1
-
-  # or an anonymous function
-  pipe_after fn message -> ... end
   ```
   """
   @spec pipe_after(
@@ -129,11 +123,7 @@ defmodule Errol.Wiring do
   ## Example
 
   ```elixir
-  # you can pass a reference to a function
   pipe_error &MyErrorLogger.log/1
-
-  # or an anonymous function
-  pipe_error fn message -> ... end
   ```
   """
   @spec pipe_error(

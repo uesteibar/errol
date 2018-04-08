@@ -1,17 +1,17 @@
 defmodule Errol.Consumer.Server do
   @moduledoc """
-  `Consumer.Server` creates a `queue`, binds it to a given `routing_key` and
-  Starts a `GenServer` that consumes messages from that queue.
+  `GenServer` that creates a `queue`, binds it to a given `routing_key` and
+   consumes messages from that queue.
 
-  The preferred way of spinning up consumer this is through `Errol.Wiring`,
-  but you can also use this module to start them on your own.
+  The preferred way of spinning up consumer this is through `Errol.Wiring.consume/3`
+  when declaring your _Wiring_, but you can also use this module to start them on your own.
 
   ## Examples
 
-  iex> {:ok, connection} = AMQP.Connection.open()
-  iex> {:ok, _pid} = Errol.Consumer.Server.start_link(name: :queue_consumer, queue: "queue_name", routing_key: "my.routing.key", callback: fn _message -> :ok end, exchange: {"/", :topic}, connection: connection)
-  iex> Errol.Consumer.Server.unbind(:queue_consumer)
-  :ok
+      iex> {:ok, connection} = AMQP.Connection.open()
+      iex> {:ok, _pid} = Errol.Consumer.Server.start_link(name: :queue_consumer, queue: "queue_name", routing_key: "my.routing.key", callback: fn _message -> :ok end, exchange: {"/", :topic}, connection: connection)
+      iex> Errol.Consumer.Server.unbind(:queue_consumer)
+      :ok
   """
 
   use GenServer
@@ -21,7 +21,7 @@ defmodule Errol.Consumer.Server do
 
   @doc """
   Creates a `queue`, binds it to a given `routing_key` and
-  Starts a `GenServer` that consumes messages from that queue.
+  Starts a process that consumes messages from that queue.
 
   It expects the following arguments:
 
@@ -31,8 +31,6 @@ defmodule Errol.Consumer.Server do
     - `callback`: A function with arity of 1.
     - `exchange`: The expected format is `{exchange_path, exchange_type}`. `exchange_type` can be `:topic`, `:fanout` or `:direct`.
     - `connection`: You can create a connection through `AMQP.Connection.open/1`.
-  ]
-  ```
   """
   @spec start_link(options :: keyword()) :: {:ok, pid()} | {:error, reason :: atom()}
   def start_link(args) do
