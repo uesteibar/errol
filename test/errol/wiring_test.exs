@@ -79,14 +79,14 @@ defmodule Errol.WiringTest do
       assert error_callback == (&Errol.WiringTest.Middleware.run_error/1)
 
       assert %{
-               queue: "message_all",
-               routing_key: "message.*",
+               queue: "message_success_anonymous",
+               routing_key: "message.success",
                exchange: "wiring_exchange",
                callback: callback,
                pipe_before: [],
                pipe_after: [],
                pipe_error: [error_callback]
-             } = GenServer.call(:message_all_consumer, :config)
+             } = GenServer.call(:message_success_anonymous_consumer, :config)
 
       assert error_callback == (&Errol.WiringTest.Middleware.run_error/1)
       assert is_function(callback)
