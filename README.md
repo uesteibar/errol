@@ -40,18 +40,35 @@ defmodule Sample.Wiring do
   @exchange "/users"
   @exchange_type :topic
 
+  # You can pass a reference to a function with arity of 1
+  consume("account_created", "users.account.created", &UsersConsumer.account_created/1)
+
+  # or even an anonymous function
+  consume("account_updated", "users.account.updated", fn message -> ... end)
+end
+```
+
+For more complex setups, you can add middleware and group different
+consumers for more granularity.
+
+```elixir
+defmodule Sample.Wiring do
+  use Wiring
+
+  @connection "amqp://guest:guest@localhost"
+  @exchange "/users"
+  @exchange_type :topic
+
   # Use pipe_before/1, pipe_after/1 or pipe_error/1 to run middleware functions
   # middlewares declared outside of a group will run for every consumer
-  pipe_before(&Sample.StatisticsMiddleware.track/2)
+  pipe_after(&Sample.StatisticsMiddleware.track/2)
   
   # Use the `group` macro to group consumers with specific middleware
   group :account do
+    # This middleware will run only for consumers in the :account group
     pipe_before(&Errol.Middleware.Json.parse/2)
 
-    # You can pass a reference to a function with arity of 1
     consume("account_created", "users.account.created", &UsersConsumer.account_created/1)
-
-    # or even an anonymous function
     consume("account_updated", "users.account.updated", fn message -> ... end)
   end
 
@@ -63,7 +80,9 @@ defmodule Sample.Wiring do
 end
 ```
 
-For the `@connection` attribute, you can pass anything that fits what the [amqp](https://hexdocs.pm/amqp) hex expects on [`AMQP.Connection.open/1`](https://hexdocs.pm/amqp/1.0.2/AMQP.Connection.html#open/1).
+For the `@connection` attribute, you can pass anything that fits what the
+[amqp](https://hexdocs.pm/amqp) hex expects on
+[`AMQP.Connection.open/1`](https://hexdocs.pm/amqp/1.0.2/AMQP.Connection.html#open/1).
 
 At this point, the only thing left is to run `Sample.Wiring` as a _supervisor_ in your `application.ex` file:
 
@@ -135,4 +154,8 @@ To run the tests (you will need [docker](https://www.docker.com/) installed)
 ./scripts/test_prepare.sh
 mix test
 ```
+
+### Credit
+
+🎉 Special thanks to [**@pma**](https://github.com/pma) for the amazing work on the [amqp hex](https://github.com/pma/amqp).
 
