@@ -115,6 +115,8 @@ Voilà! This will spin up the following supervision tree:
 
 ```
 
+Compatibility with other AMQP implementations exists but is not guaranteed (at least for now 😁).
+
 ## Running locally
 
 Clone the repository
