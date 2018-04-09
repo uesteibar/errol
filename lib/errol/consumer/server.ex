@@ -163,14 +163,27 @@ defmodule Errol.Consumer.Server do
   end
 
   @doc false
-  def processing_failed(pid, error, %{pipe_error: pipe_error, queue: queue} = state) do
+  def processing_failed(
+        pid,
+        error,
+        %{pipe_error: pipe_error, queue: queue, channel: channel} = state
+      ) do
     {{:running, %Message{meta: %{delivery_tag: tag, redelivered: redelivered}} = message},
      running_messages} = Map.pop(state.running_messages, pid)
 
     apply_middlewares(message, {queue, error}, pipe_error)
 
-    unless redelivered, do: Logger.error("Requeueing message: #{tag}")
-    :ok = AMQP.Basic.nack(state.channel, tag, requeue: !redelivered)
+    unless redelivered do
+      Logger.error("""
+      Requeueing message
+
+        * delivery_tag: #{tag}
+        * queue:        #{queue}
+        * error:        #{inspect(error)}
+      """)
+    end
+
+    :ok = AMQP.Basic.reject(state.channel, tag, requeue: !redelivered)
 
     %{state | running_messages: running_messages}
   end

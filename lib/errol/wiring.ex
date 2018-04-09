@@ -146,6 +146,8 @@ defmodule Errol.Wiring do
   Declares a consumer that will be spin up as a `Errol.Consumer.Server` process
   and supervised when your wiring module is started using `start_link/1`.
 
+  Messages will be requeued one time on failure.
+
   ## Example
 
   ```elixir
