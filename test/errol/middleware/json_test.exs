@@ -5,17 +5,17 @@ defmodule Errol.Middleware.JsonTest do
   alias Errol.Message
   alias Errol.Middleware.Json
 
-  describe "parse/1" do
+  describe "parse/2" do
     test "returns Errol.Message with parsed payload" do
       message = %Message{payload: ~s({"userId": 1})}
 
-      assert {:ok, %Message{payload: %{"userId" => 1}}} = Json.parse(message)
+      assert {:ok, %Message{payload: %{"userId" => 1}}} = Json.parse(message, "test_queue")
     end
 
     test "for non json input returns {:error, reason} tuple" do
       message = %Message{payload: ~s({invalid_json})}
 
-      assert {:error, _} = Json.parse(message)
+      assert {:error, _} = Json.parse(message, "test_queue")
     end
   end
 end

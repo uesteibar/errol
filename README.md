@@ -42,11 +42,11 @@ defmodule Sample.Wiring do
 
   # Use pipe_before/1, pipe_after/1 or pipe_error/1 to run middleware functions
   # middlewares declared outside of a group will run for every consumer
-  pipe_before(&Sample.StatisticsMiddleware.track/1)
+  pipe_before(&Sample.StatisticsMiddleware.track/2)
   
   # Use the `group` macro to group consumers with specific middleware
   group :account do
-    pipe_before(&Errol.Middleware.Json.parse/1)
+    pipe_before(&Errol.Middleware.Json.parse/2)
 
     # You can pass a reference to a function with arity of 1
     consume("account_created", "users.account.created", &UsersConsumer.account_created/1)
@@ -56,7 +56,7 @@ defmodule Sample.Wiring do
   end
 
   group :photos do
-    pipe_before(&Sample.ImagesMiddleware.uncompress/1)
+    pipe_before(&Sample.ImagesMiddleware.uncompress/2)
 
     consume("profile_photo_uploaded", "users.profile.photo.uploaded", fn message -> ... end)
   end

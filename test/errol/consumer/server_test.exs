@@ -99,10 +99,14 @@ defmodule Errol.Consumer.ServerTest do
             send(self_pid, {:assert, message.payload})
             message
           end,
-          pipe_before: [fn message -> {:ok, %Message{message | payload: "replaced payload"}} end],
+          pipe_before: [
+            fn message, queue ->
+              {:ok, %Message{message | payload: "replaced payload: #{queue}"}}
+            end
+          ],
           pipe_after: [
-            fn message ->
-              send(self_pid, {:assert_after, message.payload})
+            fn message, queue ->
+              send(self_pid, {:assert_after, message.payload, queue})
               {:ok, message}
             end
           ],
@@ -112,8 +116,8 @@ defmodule Errol.Consumer.ServerTest do
 
       AMQP.Basic.publish(channel, exchange_name, "test.middleware.pipes", "Hello amqp world!")
 
-      assert_receive {:assert, "replaced payload"}
-      assert_receive {:assert_after, "replaced payload"}
+      assert_receive {:assert, "replaced payload: test_queue"}
+      assert_receive {:assert_after, "replaced payload: test_queue", "test_queue"}
     end
 
     test "applies pipe_error middlewares to messages", %{
@@ -130,8 +134,8 @@ defmodule Errol.Consumer.ServerTest do
           exchange: exchange,
           callback: fn _ -> raise("Error") end,
           pipe_error: [
-            fn message ->
-              send(self_pid, :assert_error)
+            fn message, error ->
+              send(self_pid, {:assert_error, error})
               {:ok, message}
             end
           ],
@@ -145,22 +149,30 @@ defmodule Errol.Consumer.ServerTest do
         "Hello amqp world!"
       )
 
-      assert_receive :assert_error
+      assert_receive {:assert_error, {"test_queue", {%RuntimeError{message: "Error"}, _}}}
     end
 
-    test "failing middleware requeues message", %{
+    test "failing middleware requeues message and pipes error to error middleware", %{
       channel: channel,
       connection: connection,
       exchange: exchange,
       exchange_name: exchange_name
     } do
+      self_pid = self()
+
       {:ok, pid} =
         start_server(
           connection: connection,
           name: :success_queue_consumer,
           exchange: exchange,
           pipe_before: [
-            fn _ -> {:error, :unknown} end
+            fn _, _ -> {:error, :unknown} end
+          ],
+          pipe_error: [
+            fn message, error ->
+              send(self_pid, {:assert_error, error})
+              {:ok, message}
+            end
           ],
           routing_key: "test.middleware.failure"
         )
@@ -173,6 +185,8 @@ defmodule Errol.Consumer.ServerTest do
         "test.middleware.failure",
         "Failing middleware"
       )
+
+      assert_receive {:assert_error, {"test_queue", :unknown}}
 
       assert_receive {:trace, ^pid, :receive,
                       {:basic_deliver, "Failing middleware", %{redelivered: true}}},

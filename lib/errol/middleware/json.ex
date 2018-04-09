@@ -14,11 +14,12 @@ defmodule Errol.Middleware.Json do
   executing the consumer callback.
 
 
-  iex> Errol.Middleware.Json.parse(%Errol.Message{payload: ~s({"userId": 1})})
+  iex> Errol.Middleware.Json.parse(%Errol.Message{payload: ~s({"userId": 1})}, "queue_name")
   {:ok, %Errol.Message{meta: %{}, payload: %{"userId" => 1}}}
   """
-  @spec parse(Message.t()) :: {:ok, Message.t()} | {:error, reason :: any()}
-  def parse(%Message{payload: payload} = message) do
+  @spec parse(message :: Message.t(), queue :: String.t()) ::
+          {:ok, Message.t()} | {:error, reason :: any()}
+  def parse(%Message{payload: payload} = message, _queue) do
     case Jason.decode(payload) do
       {:ok, parsed_payload} ->
         {:ok, %Message{message | payload: parsed_payload}}

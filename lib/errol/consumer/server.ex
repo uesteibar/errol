@@ -66,10 +66,10 @@ defmodule Errol.Consumer.Server do
   end
 
   @doc false
-  defp apply_middlewares(message, middlewares) do
+  defp apply_middlewares(message, data, middlewares) do
     Enum.reduce(middlewares, {:ok, message}, fn middleware, {status, message} ->
       if status == :ok do
-        middleware.(message)
+        middleware.(message, data)
       else
         {status, message}
       end
@@ -79,21 +79,22 @@ defmodule Errol.Consumer.Server do
   @doc false
   def handle_info(
         {:basic_deliver, payload, meta},
-        %{callback: callback, pipe_before: pipe_before, pipe_after: pipe_after} = state
+        %{callback: callback, pipe_before: pipe_before, pipe_after: pipe_after, queue: queue} =
+          state
       ) do
     message = %Message{payload: payload, meta: meta}
     monitor_pid = self()
 
     {pid, _ref} =
       spawn_monitor(fn ->
-        {status, _} =
-          with {:ok, message} <- apply_middlewares(message, pipe_before),
+        result =
+          with {:ok, message} <- apply_middlewares(message, queue, pipe_before),
                message <- callback.(message),
-               {:ok, message} <- apply_middlewares(message, pipe_after) do
+               {:ok, message} <- apply_middlewares(message, queue, pipe_after) do
             {:ok, message}
           end
 
-        GenServer.cast(monitor_pid, {:processed, {status, self()}})
+        GenServer.cast(monitor_pid, {:processed, {result, self()}})
       end)
 
     {:noreply,
@@ -104,8 +105,8 @@ defmodule Errol.Consumer.Server do
   def handle_info({:DOWN, _, :process, _, :normal}, state), do: {:noreply, state}
 
   @doc false
-  def handle_info({:DOWN, _, :process, pid, _}, state) do
-    GenServer.cast(self(), {:processed, {:error, pid}})
+  def handle_info({:DOWN, _, :process, pid, exception}, state) do
+    GenServer.cast(self(), {:processed, {{:error, exception}, pid}})
 
     {:noreply, state}
   end
@@ -146,9 +147,8 @@ defmodule Errol.Consumer.Server do
   end
 
   @doc false
-  def handle_cast({:processed, {:ok, pid}}, state) do
-    {{:running, %Message{meta: %{delivery_tag: tag}}}, running_messages} =
-      Map.pop(state.running_messages, pid)
+  def handle_cast({:processed, {{:ok, %Message{meta: %{delivery_tag: tag}}}, pid}}, state) do
+    {_, running_messages} = Map.pop(state.running_messages, pid)
 
     :ok = AMQP.Basic.ack(state.channel, tag)
 
@@ -156,18 +156,18 @@ defmodule Errol.Consumer.Server do
   end
 
   @doc false
-  def handle_cast({:processed, {:error, pid}}, state) do
-    new_state = processing_failed(pid, state)
+  def handle_cast({:processed, {{:error, error}, pid}}, state) do
+    new_state = processing_failed(pid, error, state)
 
     {:noreply, new_state}
   end
 
   @doc false
-  def processing_failed(pid, %{pipe_error: pipe_error} = state) do
+  def processing_failed(pid, error, %{pipe_error: pipe_error, queue: queue} = state) do
     {{:running, %Message{meta: %{delivery_tag: tag, redelivered: redelivered}} = message},
      running_messages} = Map.pop(state.running_messages, pid)
 
-    apply_middlewares(message, pipe_error)
+    apply_middlewares(message, {queue, error}, pipe_error)
 
     unless redelivered, do: Logger.error("Requeueing message: #{tag}")
     :ok = AMQP.Basic.nack(state.channel, tag, requeue: !redelivered)

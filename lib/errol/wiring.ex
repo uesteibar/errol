@@ -18,7 +18,7 @@ defmodule Errol.Wiring do
     @exchange_type :topic
 
     group :account do
-      pipe_before(&Errol.Middleware.Json.parse/1)
+      pipe_before(&Errol.Middleware.Json.parse/2)
 
       consume("users_account_created", "users.account.created", &UsersConsumer.account_created/1)
       consume("users_account_updated", "users.account.updated", &UsersConsumer.account_updated/1)
@@ -61,7 +61,7 @@ defmodule Errol.Wiring do
   ```elixir
     group :account do
       # This middleware will only run for consumers on this group
-      pipe_before(&Errol.Middleware.Json.parse/1)
+      pipe_before(&Errol.Middleware.Json.parse/2)
 
       consume("users_account_created", "users.account.created", &UsersConsumer.account_created/1)
       consume("users_account_updated", "users.account.updated", &UsersConsumer.account_updated/1)
@@ -87,11 +87,13 @@ defmodule Errol.Wiring do
   ## Example
 
   ```elixir
-  pipe_before &Errol.Middleware.Json.parse/1
+  pipe_before &Errol.Middleware.Json.parse/2
   ```
   """
   @spec pipe_before(
-          callback :: (Errol.Message.t() -> {:ok, Errol.Message.t()} | {:error, reason :: any()})
+          callback ::
+            (Errol.Message.t(), queue :: String.t() ->
+               {:ok, Errol.Message.t()} | {:error, reason :: any()})
         ) :: no_return()
   defmacro pipe_before(callback) do
     quote bind_quoted: [callback: callback] do
@@ -105,11 +107,13 @@ defmodule Errol.Wiring do
   ## Example
 
   ```elixir
-  pipe_after &Notifications.notify_success/1
+  pipe_after &Notifications.notify_success/2
   ```
   """
   @spec pipe_after(
-          callback :: (Errol.Message.t() -> {:ok, Errol.Message.t()} | {:error, reason :: any()})
+          callback ::
+            (Errol.Message.t(), queue :: String.t() ->
+               {:ok, Errol.Message.t()} | {:error, reason :: any()})
         ) :: no_return()
   defmacro pipe_after(callback) do
     quote bind_quoted: [callback: callback] do
@@ -118,16 +122,19 @@ defmodule Errol.Wiring do
   end
 
   @doc """
-  Sets a middleware function that will be run if either a _before middleware_ or the _consumer callback_ **fails**.
+  Sets a middleware function that will be run if either a _before_ or
+  _after middleware_ or the _consumer callback_ **fails**.
 
   ## Example
 
   ```elixir
-  pipe_error &MyErrorLogger.log/1
+  pipe_error &MyErrorLogger.log/2
   ```
   """
   @spec pipe_error(
-          callback :: (Errol.Message.t() -> {:ok, Errol.Message.t()} | {:error, reason :: any()})
+          callback ::
+            (Errol.Message.t(), {queue :: String.t(), error :: any()} ->
+               {:ok, Errol.Message.t()} | {:error, reason :: any()})
         ) :: no_return()
   defmacro pipe_error(callback) do
     quote bind_quoted: [callback: callback] do
