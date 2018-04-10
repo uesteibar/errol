@@ -6,6 +6,7 @@ An opinionated framework to run and orchestrate [RabbitMQ](https://www.rabbitmq.
 
 - [Installation](#installation)
 - [Usage](#usage)
+- [Roadmap](#roadmap)
 - [Running Locally](#running-locally)
 
 ## Installation
@@ -135,6 +136,15 @@ Voilà! This will spin up the following supervision tree:
 ```
 
 Compatibility with other AMQP implementations exists but is not guaranteed (at least for now 😁).
+
+## Roadmap
+
+- [] By now, when a message fails to be processed it will be redelivered **only once**.
+After that the message will be just rejected. Adding the ability to specify the number
+of retries is in the roadmap.
+- [] Adding a middleware to ensure duplicated messages are not consumed more than once.
+- [] Allowing to specify number of workers per consumer.
+[Poolboy](https://github.com/devinus/poolboy) would come handy here.
 
 ## Running locally
 
