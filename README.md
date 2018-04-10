@@ -6,8 +6,10 @@ An opinionated framework to run and orchestrate [RabbitMQ](https://www.rabbitmq.
 
 - [Installation](#installation)
 - [Usage](#usage)
-- [Roadmap](#roadmap)
 - [Running Locally](#running-locally)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [Credit](#credit)
 
 ## Installation
 
@@ -137,15 +139,6 @@ Voilà! This will spin up the following supervision tree:
 
 Compatibility with other AMQP implementations exists but is not guaranteed (at least for now 😁).
 
-## Roadmap
-
-- [] By now, when a message fails to be processed it will be redelivered **only once**.
-After that the message will be just rejected. Adding the ability to specify the number
-of retries is in the roadmap.
-- [] Adding a middleware to ensure duplicated messages are not consumed more than once.
-- [] Allowing to specify number of workers per consumer.
-[Poolboy](https://github.com/devinus/poolboy) would come handy here.
-
 ## Running locally
 
 Clone the repository
@@ -164,6 +157,39 @@ To run the tests (you will need [docker](https://www.docker.com/) installed)
 ./scripts/test_prepare.sh
 mix test
 ```
+
+## Roadmap
+
+- [] Allowing to specify the number of retries. For now, when a message fails
+to be processed it will be redelivered **only once**. After that the message will be just rejected. 
+- [] Adding a middleware to ensure duplicated messages are not consumed more than once.
+- [] Allowing to specify number of workers per consumer.
+[Poolboy](https://github.com/devinus/poolboy) would come handy here.
+
+## Contributing
+
+Pull requests are always welcome =)
+
+The project uses [standard-changelog](https://github.com/conventional-changelog/conventional-changelog) to update the _Changelog_ with each commit message and upgrade the package version.
+For that reason every contribution must have a title and body that follows the [conventional commits standard](https://conventionalcommits.org/) conventions (e.g. `feat(consumer): Consume it all`).
+
+To make this process easier, you can do the following:
+
+Install `commitizen` and `cz-conventional-changelog` globally
+```bash
+npm i -g commitizen cz-conventional-changelog
+```
+
+Save `cz-conventional-changelog` as default
+```bash
+echo '{ "path": "cz-conventional-changelog" }' > ~/.czrc
+```
+
+Instead of `git commit`, you can now run
+```
+git cz
+```
+and follow the instructions to generate the commit message.
 
 ### Credit
 
