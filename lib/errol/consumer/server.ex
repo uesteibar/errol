@@ -173,20 +173,21 @@ defmodule Errol.Consumer.Server do
 
     apply_middlewares(message, {queue, error}, pipe_error)
 
-    unless redelivered do
-      Logger.error("""
-      Requeueing message
+    Logger.error("""
+    #{redeliver_message(redelivered)}
 
-        * delivery_tag: #{tag}
-        * queue:        #{queue}
-        * error:        #{inspect(error)}
-      """)
-    end
+      * delivery_tag: #{tag}
+      * queue:        #{queue}
+      * error:        #{inspect(error)}
+    """)
 
     :ok = AMQP.Basic.reject(state.channel, tag, requeue: !redelivered)
 
     %{state | running_messages: running_messages}
   end
+
+  defp redeliver_message(false), do: "Retrying message"
+  defp redeliver_message(true), do: "Rejecting message"
 
   @doc """
   Unbinds the given process from the rabbitmq queue it is subscribed to and
