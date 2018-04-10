@@ -2,7 +2,7 @@ defmodule Errol.Middleware.Json do
   alias Errol.Message
 
   @doc """
-  Parses json payload in an `%Errol.Message{}` struct.
+  Parses json payload into an `%Errol.Message{}` struct.
 
   This is thought to be used in your wiring as:
 
@@ -13,9 +13,11 @@ defmodule Errol.Middleware.Json do
   This way the payload of every message consumed will be parsed before
   executing the consumer callback.
 
+  To use this you will need to install the [jason](https://github.com/michalmuskala/jason) hex.
 
-  iex> Errol.Middleware.Json.parse(%Errol.Message{payload: ~s({"userId": 1})}, "queue_name")
-  {:ok, %Errol.Message{meta: %{}, payload: %{"userId" => 1}}}
+
+      iex> Errol.Middleware.Json.parse(%Errol.Message{payload: ~s({"userId": 1})}, "queue_name")
+      {:ok, %Errol.Message{meta: %{}, payload: %{"userId" => 1}}}
   """
   @spec parse(message :: Message.t(), queue :: String.t()) ::
           {:ok, Message.t()} | {:error, reason :: any()}
