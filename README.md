@@ -160,10 +160,10 @@ mix test
 
 ## Roadmap
 
-- [] Allowing to specify the number of retries. For now, when a message fails
+- [ ] Allowing to specify the number of retries. For now, when a message fails
 to be processed it will be redelivered **only once**. After that the message will be just rejected. 
-- [] Adding a middleware to ensure duplicated messages are not consumed more than once.
-- [] Allowing to specify number of workers per consumer.
+- [ ] Adding a middleware to ensure duplicated messages are not consumed more than once.
+- [ ] Allowing to specify number of workers per consumer.
 [Poolboy](https://github.com/devinus/poolboy) would come handy here.
 
 ## Contributing
