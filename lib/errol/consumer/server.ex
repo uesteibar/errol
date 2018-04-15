@@ -88,11 +88,25 @@ defmodule Errol.Consumer.Server do
     {pid, _ref} =
       spawn_monitor(fn ->
         result =
-          with {:ok, message} <- apply_middlewares(message, queue, pipe_before),
-               message <- callback.(message),
-               {:ok, message} <- apply_middlewares(message, queue, pipe_after) do
-            {:ok, message}
+          case apply_middlewares(message, queue, pipe_before) do
+            {:ok, message} ->
+              with message <- callback.(message),
+                   {:ok, message} <- apply_middlewares(message, queue, pipe_after) do
+                {:ok, message}
+              else
+                {:error, reason} ->
+                  {:error, reason}
+              end
+
+            {result, reason} ->
+              {result, reason}
           end
+
+        with {:ok, message} <- apply_middlewares(message, queue, pipe_before),
+             message <- callback.(message),
+             {:ok, message} <- apply_middlewares(message, queue, pipe_after) do
+          {:ok, message}
+        end
 
         GenServer.cast(monitor_pid, {:processed, {result, self()}})
       end)
@@ -156,6 +170,18 @@ defmodule Errol.Consumer.Server do
   end
 
   @doc false
+  def handle_cast({:processed, {{:reject, reason}, pid}}, state) do
+    {{:running, %Message{meta: %{delivery_tag: tag}} = message}, running_messages} =
+      Map.pop(state.running_messages, pid)
+
+    log_error(:reject, message, state.queue, reason)
+
+    :ok = AMQP.Basic.reject(state.channel, tag, requeue: false)
+
+    {:noreply, %{state | running_messages: running_messages}}
+  end
+
+  @doc false
   def handle_cast({:processed, {{:error, error}, pid}}, state) do
     new_state = processing_failed(pid, error, state)
 
@@ -173,21 +199,30 @@ defmodule Errol.Consumer.Server do
 
     apply_middlewares(message, {queue, error}, pipe_error)
 
-    Logger.error("""
-    #{redeliver_message(redelivered)}
+    redelivered
+    |> failure_reason()
+    |> log_error(message, queue, error)
 
-      * delivery_tag: #{tag}
-      * queue:        #{queue}
-      * error:        #{inspect(error)}
-    """)
-
-    :ok = AMQP.Basic.reject(state.channel, tag, requeue: !redelivered)
+    :ok = AMQP.Basic.reject(channel, tag, requeue: !redelivered)
 
     %{state | running_messages: running_messages}
   end
 
-  defp redeliver_message(false), do: "Retrying message"
-  defp redeliver_message(true), do: "Rejecting message"
+  def failure_reason(false), do: :retry
+  def failure_reason(true), do: :reject
+
+  defp log_error(reason, message, queue, error) do
+    Logger.error("""
+    #{error_header(reason)}
+
+      * message: #{inspect(message)}
+      * queue:   #{queue}
+      * error:   #{inspect(error)}
+    """)
+  end
+
+  defp error_header(:retry), do: "Retrying message"
+  defp error_header(_), do: "Rejecting message"
 
   @doc """
   Unbinds the given process from the rabbitmq queue it is subscribed to and

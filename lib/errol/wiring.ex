@@ -93,7 +93,7 @@ defmodule Errol.Wiring do
   @spec pipe_before(
           callback ::
             (Errol.Message.t(), queue :: String.t() ->
-               {:ok, Errol.Message.t()} | {:error, reason :: any()})
+               {:ok, Errol.Message.t()} | {:error | :reject, reason :: any()})
         ) :: no_return()
   defmacro pipe_before(callback) do
     quote bind_quoted: [callback: callback] do
