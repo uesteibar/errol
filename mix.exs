@@ -8,6 +8,7 @@ defmodule Errol.MixProject do
     [
       app: :errol,
       version: @version,
+      description: "Opinionated RabbitMQ framework for Elixir",
       elixir: "~> 1.5",
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
