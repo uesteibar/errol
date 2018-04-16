@@ -1,0 +1,15 @@
+sudo: required
+
+services:
+  - docker
+
+language: elixir
+elixir:
+  - 1.5.1
+  - 1.6.1
+
+before_install:
+  - ./scripts/test_prepare.sh
+
+script:
+  - mix test
