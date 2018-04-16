@@ -22,6 +22,8 @@ defmodule Errol.WiringTest do
     @exchange "wiring_exchange"
     @exchange_type :topic
 
+    connection(Application.get_env(:errol_test, :connection))
+
     pipe_before(&Middleware.run_before_default/2)
 
     group :success do
@@ -41,6 +43,7 @@ defmodule Errol.WiringTest do
 
   describe "start_link/1" do
     setup do
+      Application.put_env(:errol_test, :connection, host: "localhost")
       {:ok, connection} = AMQP.Connection.open(host: "localhost")
       {:ok, channel} = AMQP.Channel.open(connection)
 

@@ -39,7 +39,8 @@ To bind consumers to queue, you can use the `Errol.Wiring` module:
 defmodule Sample.Wiring do
   use Wiring
 
-  @connection "amqp://guest:guest@localhost"
+  connection "amqp://guest:guest@localhost"
+
   @exchange "/users"
   @exchange_type :topic
 
@@ -58,7 +59,8 @@ consumers for more granularity.
 defmodule Sample.Wiring do
   use Wiring
 
-  @connection "amqp://guest:guest@localhost"
+  connection "amqp://guest:guest@localhost"
+
   @exchange "/users"
   @exchange_type :topic
 
@@ -82,10 +84,6 @@ defmodule Sample.Wiring do
   end
 end
 ```
-
-For the `@connection` attribute, you can pass anything that fits what the
-[amqp](https://hexdocs.pm/amqp) hex expects on
-[`AMQP.Connection.open/1`](https://hexdocs.pm/amqp/1.0.2/AMQP.Connection.html#open/1).
 
 At this point, the only thing left is to run `Sample.Wiring` as a _supervisor_ in your `application.ex` file:
 

@@ -13,7 +13,8 @@ defmodule Errol.Wiring do
   defmodule MyWiring do
     use Wiring
 
-    @connection "amqp://guest:guest@localhost"
+    connection "amqp://guest:guest@localhost"
+
     @exchange "/users"
     @exchange_type :topic
 
@@ -41,13 +42,55 @@ defmodule Errol.Wiring do
       Module.register_attribute(__MODULE__, :group_name, accumulate: false)
       @group_name :errol_default
       Module.register_attribute(__MODULE__, :connection, accumulate: false)
-      @connection []
       @before_compile unquote(__MODULE__)
 
       use Supervisor
 
       def start_link(_) do
         Supervisor.start_link(__MODULE__, nil, name: __MODULE__)
+      end
+    end
+  end
+
+  @doc """
+  Sets AMQP connection configuration
+
+  When using a keyword list, the following options can be used:
+    * `:username` - The name of a user registered with the broker (defaults to \"guest\");
+    * `:password` - The password of user (defaults to \"guest\");
+    * `:virtual_host` - The name of a virtual host in the broker (defaults to \"/\");
+    * `:host` - The hostname of the broker (defaults to \"localhost\");
+    * `:port` - The port the broker is listening on (defaults to `5672`);
+    * `:channel_max` - The channel_max handshake parameter (defaults to `0`);
+    * `:frame_max` - The frame_max handshake parameter (defaults to `0`);
+    * `:heartbeat` - The hearbeat interval in seconds (defaults to `10`);
+    * `:connection_timeout` - The connection timeout in milliseconds (defaults to `60000`);
+    * `:ssl_options` - Enable SSL by setting the location to cert files (defaults to `none`);
+    * `:client_properties` - A list of extra client properties to be sent to the server, defaults to `[]`;
+    * `:socket_options` - Extra socket options. These are appended to the default options. \
+                          See http://www.erlang.org/doc/man/inet.html#setopts-2 and http://www.erlang.org/doc/man/gen_tcp.html#connect-4 \
+                          for descriptions of the available options.
+
+  To enable SSL, supply the following in the `ssl_options` field:
+    * `cacertfile` - Specifies the certificates of the root Certificate Authorities that we wish to implicitly trust;
+    * `certfile` - The client's own certificate in PEM format;
+    * `keyfile` - The client's private key in PEM format;
+
+  ## Example
+
+  ```elixir
+    # You can pass a url
+    connection "amqp://guest:guest@localhost"
+
+    # or a keyword list
+    connection host: "rabbit", port: 5432
+  ```
+  """
+  @spec connection(config :: String.t() | keyword()) :: no_return()
+  defmacro connection(config) do
+    quote do
+      def connection do
+        unquote(config)
       end
     end
   end
@@ -182,7 +225,7 @@ defmodule Errol.Wiring do
       end
 
       def init(_) do
-        {:ok, connection} = AMQP.Connection.open(@connection)
+        {:ok, connection} = AMQP.Connection.open(connection)
 
         @wirings
         |> Enum.map(fn {queue, routing_key, group_name} ->
