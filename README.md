@@ -1,6 +1,7 @@
 # Errol
 
 [![Build Status](https://travis-ci.org/uesteibar/errol.svg?branch=master)](https://travis-ci.org/uesteibar/errol)
+[![Hex Version](https://img.shields.io/hexpm/v/errol.svg)](https://hex.pm/packages/errol)
 
 An opinionated framework to run and orchestrate [RabbitMQ](https://www.rabbitmq.com/) consumers.
 
