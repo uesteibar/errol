@@ -1,5 +1,7 @@
 # Errol
 
+[![Build Status](https://travis-ci.org/uesteibar/errol.svg?branch=master)](https://travis-ci.org/uesteibar/errol)
+
 An opinionated framework to run and orchestrate [RabbitMQ](https://www.rabbitmq.com/) consumers.
 
 ## Index
