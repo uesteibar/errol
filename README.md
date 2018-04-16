@@ -161,8 +161,9 @@ mix test
 - [ ] Allowing to specify the number of retries. For now, when a message fails
 to be processed it will be redelivered **only once**. After that the message will be just rejected. 
 - [ ] Adding a middleware to ensure duplicated messages are not consumed more than once.
-- [ ] Allowing to specify number of workers per consumer.
-[Poolboy](https://github.com/devinus/poolboy) would come handy here.
+- [ ] Allowing to specify number of workers per consumer. [Poolboy](https://github.com/devinus/poolboy) would come handy here.
+- [ ] Handle RabbitMQ outages, following the great explanation in the [amqp hex documentation](https://hexdocs.pm/amqp/readme.html#stable-rabbitmq-connection).
+- [ ] Publishing messages.
 
 ## Contributing
 
