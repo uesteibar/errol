@@ -197,19 +197,14 @@ defmodule Errol.Consumer.Server do
     {{:running, %Message{meta: %{delivery_tag: tag, redelivered: redelivered}} = message},
      running_messages} = Map.pop(state.running_messages, pid)
 
-    apply_middlewares(message, {queue, error}, pipe_error)
+    {status, _} = apply_middlewares(message, {queue, error}, pipe_error)
 
-    redelivered
-    |> failure_reason()
-    |> log_error(message, queue, error)
+    log_error(status, message, queue, error)
 
-    :ok = AMQP.Basic.reject(channel, tag, requeue: !redelivered)
+    :ok = AMQP.Basic.reject(channel, tag, requeue: status == :retry)
 
     %{state | running_messages: running_messages}
   end
-
-  def failure_reason(false), do: :retry
-  def failure_reason(true), do: :reject
 
   defp log_error(reason, message, queue, error) do
     Logger.error("""
