@@ -55,7 +55,7 @@ defmodule Sample.Wiring do
 end
 ```
 
-For more complex setups, you can add middleware and group different
+For more complex setups, you can add **middleware** and **group** different
 consumers for more granularity.
 
 ```elixir
