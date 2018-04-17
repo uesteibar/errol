@@ -161,6 +161,7 @@ mix test
 
 ## Roadmap
 
+- [ ] Allow to retry messages from `pipe_error` middleware. This would enable users to handle retries and requeuing to dead letter exchange.
 - [ ] Allow to specify number of workers per consumer. [Poolboy](https://github.com/devinus/poolboy) would come handy here.
 - [ ] Handle RabbitMQ outages, following the great explanation in the [amqp hex documentation](https://hexdocs.pm/amqp/readme.html#stable-rabbitmq-connection).
 - [ ] Publish messages.
