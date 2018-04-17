@@ -58,28 +58,6 @@ defmodule Errol.Consumer.ServerTest do
       assert 1 == AMQP.Queue.consumer_count(channel, "test_queue")
       assert_receive :assert
     end
-
-    test "requeues message on error", %{
-      channel: channel,
-      connection: connection,
-      exchange: exchange,
-      exchange_name: exchange_name
-    } do
-      {:ok, pid} =
-        start_server(
-          connection: connection,
-          exchange: exchange,
-          callback: fn _ -> raise("Error") end,
-          routing_key: "test.requeue"
-        )
-
-      :erlang.trace(pid, true, [:receive])
-
-      AMQP.Basic.publish(channel, exchange_name, "test.requeue", "Fail!")
-
-      assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Fail!", %{redelivered: true}}},
-                     1000
-    end
   end
 
   describe "middleware" do
@@ -152,7 +130,49 @@ defmodule Errol.Consumer.ServerTest do
       assert_receive {:assert_error, {"test_queue", {%RuntimeError{message: "Error"}, _}}}
     end
 
-    test "failing pipe_before requeues message and pipes error to error middleware", %{
+    test "returning {:retry, reason} from pipe_error middleware retries message", %{
+      connection: connection,
+      channel: channel,
+      exchange: exchange,
+      exchange_name: exchange_name
+    } do
+      {:ok, pid} =
+        start_server(
+          connection: connection,
+          exchange: exchange,
+          callback: fn _ -> raise("Error") end,
+          pipe_error: [
+            fn message, _ ->
+              if message.meta.redelivered do
+                {:ok, message}
+              else
+                {:retry, :test}
+              end
+            end
+          ],
+          routing_key: "test.middleware.retry"
+        )
+
+      AMQP.Basic.publish(
+        channel,
+        exchange_name,
+        "test.middleware.retry",
+        "Requeue"
+      )
+
+      :erlang.trace(pid, true, [:receive])
+
+      assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Requeue", %{redelivered: false}}},
+                     1000
+
+      assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Requeue", %{redelivered: true}}},
+                     1000
+
+      refute_receive {:trace, ^pid, :receive, {:basic_deliver, "Requeue", %{redelivered: true}}},
+                     1000
+    end
+
+    test "failing pipe_before pipes error to error middleware", %{
       channel: channel,
       connection: connection,
       exchange: exchange,
@@ -160,7 +180,7 @@ defmodule Errol.Consumer.ServerTest do
     } do
       self_pid = self()
 
-      {:ok, pid} =
+      {:ok, _pid} =
         start_server(
           connection: connection,
           name: :success_queue_consumer,
@@ -177,8 +197,6 @@ defmodule Errol.Consumer.ServerTest do
           routing_key: "test.middleware.failure"
         )
 
-      :erlang.trace(pid, true, [:receive])
-
       AMQP.Basic.publish(
         channel,
         exchange_name,
@@ -187,13 +205,9 @@ defmodule Errol.Consumer.ServerTest do
       )
 
       assert_receive {:assert_error, {"test_queue", :unknown}}
-
-      assert_receive {:trace, ^pid, :receive,
-                      {:basic_deliver, "Failing middleware", %{redelivered: true}}},
-                     1000
     end
 
-    test "failing pipe_after requeues message and pipes error to error middleware", %{
+    test "failing pipe_after pipes error to error middleware", %{
       channel: channel,
       connection: connection,
       exchange: exchange,
@@ -201,7 +215,7 @@ defmodule Errol.Consumer.ServerTest do
     } do
       self_pid = self()
 
-      {:ok, pid} =
+      {:ok, _pid} =
         start_server(
           connection: connection,
           name: :success_queue_consumer,
@@ -218,8 +232,6 @@ defmodule Errol.Consumer.ServerTest do
           routing_key: "test.middleware.failure"
         )
 
-      :erlang.trace(pid, true, [:receive])
-
       AMQP.Basic.publish(
         channel,
         exchange_name,
@@ -228,10 +240,6 @@ defmodule Errol.Consumer.ServerTest do
       )
 
       assert_receive {:assert_error, {"test_queue", :unknown}}
-
-      assert_receive {:trace, ^pid, :receive,
-                      {:basic_deliver, "Failing middleware", %{redelivered: true}}},
-                     1000
     end
 
     test "pipe_before returning {:reject, reason} does not redeliver message", %{

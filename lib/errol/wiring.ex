@@ -168,6 +168,9 @@ defmodule Errol.Wiring do
   Sets a middleware function that will be run if either a _before_ or
   _after middleware_ or the _consumer callback_ **fails**.
 
+  If the function returns `{:retry, reason}`, the message will be retried.
+  This way you can control your own retry policy.
+
   ## Example
 
   ```elixir
@@ -177,7 +180,7 @@ defmodule Errol.Wiring do
   @spec pipe_error(
           callback ::
             (Errol.Message.t(), {queue :: String.t(), error :: any()} ->
-               {:ok, Errol.Message.t()} | {:error, reason :: any()})
+               {:ok, Errol.Message.t()} | {:error, reason :: any()} | {:retry, reason :: any()})
         ) :: no_return()
   defmacro pipe_error(callback) do
     quote bind_quoted: [callback: callback] do
