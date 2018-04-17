@@ -20,6 +20,7 @@ defmodule Errol.Wiring do
 
     group :account do
       pipe_before(&Errol.Middleware.Json.parse/2)
+      pipe_error(&Errol.Middleware.Retry.basic_retry/2)
 
       consume("users_account_created", "users.account.created", &UsersConsumer.account_created/1)
       consume("users_account_updated", "users.account.updated", &UsersConsumer.account_updated/1)
