@@ -7,7 +7,7 @@ defmodule Errol.Middleware.Json do
   This is thought to be used in your wiring as:
 
   ```elixir
-  pipe_before Errol.Middleware.Json.parse/1
+  pipe_before Errol.Middleware.Json.parse/2
   ```
 
   This way the payload of every message consumed will be parsed before
