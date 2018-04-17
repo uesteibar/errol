@@ -73,8 +73,9 @@ defmodule Sample.Wiring do
   
   # Use the `group` macro to group consumers with specific middleware
   group :account do
-    # This middleware will run only for consumers in the :account group
+    # This middlewares will run only for consumers in the :account group
     pipe_before(&Errol.Middleware.Json.parse/2)
+    pipe_error(&Errol.Middleware.Retry.basic_retry/2)
 
     consume("account_created", "users.account.created", &UsersConsumer.account_created/1)
     consume("account_updated", "users.account.updated", fn message -> ... end)
