@@ -181,7 +181,7 @@ defmodule Errol.Wiring do
   @spec pipe_error(
           callback ::
             (Errol.Message.t(), {queue :: String.t(), error :: any()} ->
-               {:ok, Errol.Message.t()} | {:error, reason :: any()} | {:retry, reason :: any()})
+               {:ok, Errol.Message.t()} | {:error | :retry, reason :: any()})
         ) :: no_return()
   defmacro pipe_error(callback) do
     quote bind_quoted: [callback: callback] do

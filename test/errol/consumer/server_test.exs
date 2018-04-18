@@ -172,6 +172,72 @@ defmodule Errol.Consumer.ServerTest do
                      1000
     end
 
+    test "returning {:reject, reason} from pipe_before middleware retries message", %{
+      connection: connection,
+      channel: channel,
+      exchange: exchange,
+      exchange_name: exchange_name
+    } do
+      self_pid = self()
+
+      {:ok, pid} =
+        start_server(
+          connection: connection,
+          exchange: exchange,
+          callback: fn message ->
+            send(self_pid, :assert_callback)
+            message
+          end,
+          pipe_before: [fn _, _ -> {:reject, :test} end],
+          routing_key: "test.middleware.reject_before"
+        )
+
+      AMQP.Basic.publish(
+        channel,
+        exchange_name,
+        "test.middleware.reject_before",
+        "Reject"
+      )
+
+      :erlang.trace(pid, true, [:receive])
+
+      assert_receive {:trace, ^pid, :receive, {:basic_deliver, "Reject", %{redelivered: false}}},
+                     1000
+
+      refute_receive {:trace, ^pid, :receive, {:basic_deliver, "Requeue", %{redelivered: true}}},
+                     1000
+    end
+
+    test "returning {:reject, reason} from pipe_before skips executing callback", %{
+      connection: connection,
+      channel: channel,
+      exchange: exchange,
+      exchange_name: exchange_name
+    } do
+      self_pid = self()
+
+      {:ok, pid} =
+        start_server(
+          connection: connection,
+          exchange: exchange,
+          callback: fn message ->
+            send(self_pid, :refute_callback)
+            message
+          end,
+          pipe_before: [fn _, _ -> {:reject, :test} end],
+          routing_key: "test.middleware.reject_before"
+        )
+
+      AMQP.Basic.publish(
+        channel,
+        exchange_name,
+        "test.middleware.reject_before",
+        "Reject"
+      )
+
+      refute_receive :refute_callback
+    end
+
     test "failing pipe_before pipes error to error middleware", %{
       channel: channel,
       connection: connection,
