@@ -20,7 +20,7 @@ The package can be installed by adding `errol` to your list of dependencies in `
 
 ```elixir
 def deps do
-  [{:errol, "~> 0.1.0"}]
+  [{:errol, "~> 0.2.0"}]
 end
 ```
 
@@ -89,7 +89,10 @@ defmodule Sample.Wiring do
 end
 ```
 
-At this point, the only thing left is to run `Sample.Wiring` as a _supervisor_ in your `application.ex` file:
+At this point, the only thing left is to run `Sample.Wiring` as a _supervisor_ in your `application.ex` file.
+
+This is important because if _RabbitMQ_ goes down, all wiring supervisors will
+be killed, so if they are not in the supervision tree they will not be restarted.
 
 ```elixir
 defmodule Sample.Application do
@@ -164,7 +167,7 @@ mix test
 
 - [x] Allow to retry messages from `pipe_error` middleware. This would enable users to handle retries and requeuing to dead letter exchange.
 - [x] Allow to reject messages from `pipe_before` middleware.
-- [ ] Handle RabbitMQ outages, following the great explanation in the [amqp hex documentation](https://hexdocs.pm/amqp/readme.html#stable-rabbitmq-connection).
+- [x] Handle RabbitMQ outages, following the great explanation in the [amqp hex documentation](https://hexdocs.pm/amqp/readme.html#stable-rabbitmq-connection).
 - [ ] Allow to specify number of workers per consumer. [Poolboy](https://github.com/devinus/poolboy) would come handy here.
 - [ ] Publish messages.
 
