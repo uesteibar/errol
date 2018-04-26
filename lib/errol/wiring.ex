@@ -229,7 +229,20 @@ defmodule Errol.Wiring do
       end
 
       def init(_) do
-        {:ok, connection} = AMQP.Connection.open(connection)
+        connection
+        |> AMQP.Connection.open()
+        |> start_workers()
+      end
+
+      defp start_workers({:error, _}) do
+        IO.warn("Could not start AMQP connection. Waiting...")
+        :timer.sleep(10_000)
+
+        init(:ok)
+      end
+
+      defp start_workers({:ok, conn}) do
+        Errol.Monitoring.RabbitMQ.monitor(conn.pid, __MODULE__)
 
         @wirings
         |> Enum.map(fn {queue, routing_key, group_name} ->
@@ -242,7 +255,7 @@ defmodule Errol.Wiring do
                 name: :"#{queue}_consumer",
                 queue: Atom.to_string(queue),
                 routing_key: routing_key,
-                connection: connection,
+                connection: conn,
                 callback: callback,
                 pipe_before:
                   get_middlewares_for(:errol_default, :before) ++
@@ -259,7 +272,7 @@ defmodule Errol.Wiring do
             id: queue
           )
         end)
-        |> Supervisor.init(strategy: :one_for_one)
+        |> Supervisor.init(strategy: :one_for_one, max_restarts: 10)
       end
     end
   end
