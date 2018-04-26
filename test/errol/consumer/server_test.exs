@@ -216,7 +216,7 @@ defmodule Errol.Consumer.ServerTest do
     } do
       self_pid = self()
 
-      {:ok, pid} =
+      {:ok, _pid} =
         start_server(
           connection: connection,
           exchange: exchange,

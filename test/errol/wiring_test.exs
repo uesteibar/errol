@@ -5,8 +5,8 @@ defmodule Errol.WiringTest do
   alias Errol.{Wiring, Consumer}
 
   defmodule Consumer do
-    def consume_success(_queue, _message), do: :ok
-    def consume_all(_queue, _message), do: :ok
+    def consume_success(_message), do: :ok
+    def consume_all(_message), do: :ok
   end
 
   defmodule Middleware do
