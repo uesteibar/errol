@@ -41,7 +41,7 @@ defmodule Errol.WiringTest do
     end
   end
 
-  describe "start_link/1" do
+  describe "start_link/0" do
     setup do
       Application.put_env(:errol_test, :connection, host: "localhost")
       {:ok, connection} = AMQP.Connection.open(host: "localhost")
@@ -54,7 +54,7 @@ defmodule Errol.WiringTest do
     end
 
     test "starts the consumers" do
-      {:ok, _} = TestWiring.start_link(nil)
+      {:ok, _} = TestWiring.start_link()
       :timer.sleep(2000)
 
       assert %{
