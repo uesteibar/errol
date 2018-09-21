@@ -11,9 +11,9 @@ defmodule Errol.Wiring do
 
   ```elixir
   defmodule MyWiring do
-    use Wiring
+    use Errol.Wiring
 
-    connection "amqp://guest:guest@localhost"
+    connection("amqp://guest:guest@localhost")
 
     @exchange "/users"
     @exchange_type :topic

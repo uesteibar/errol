@@ -40,9 +40,9 @@ To bind consumers to queue, you can use the `Errol.Wiring` module:
 
 ```elixir
 defmodule Sample.Wiring do
-  use Wiring
+  use Errol.Wiring
 
-  connection "amqp://guest:guest@localhost"
+  connection("amqp://guest:guest@localhost")
 
   @exchange "/users"
   @exchange_type :topic
@@ -60,9 +60,9 @@ consumers for more granularity.
 
 ```elixir
 defmodule Sample.Wiring do
-  use Wiring
+  use Errol.Wiring
 
-  connection "amqp://guest:guest@localhost"
+  connection("amqp://guest:guest@localhost")
 
   @exchange "/users"
   @exchange_type :topic
@@ -70,7 +70,7 @@ defmodule Sample.Wiring do
   # Use pipe_before/1, pipe_after/1 or pipe_error/1 to run middleware functions
   # middlewares declared outside of a group will run for every consumer
   pipe_after(&Sample.StatisticsMiddleware.track/2)
-  
+
   # Use the `group` macro to group consumers with specific middleware
   group :account do
     # This middlewares will run only for consumers in the :account group
