@@ -211,8 +211,6 @@ defmodule Errol.Wiring do
           callback :: (Errol.Message.t() -> Errol.Message.t())
         ) :: no_return()
   defmacro consume(queue, routing_key, callback) do
-    queue = String.to_atom(queue)
-
     quote do
       @wirings {unquote(queue), unquote(routing_key), @group_name}
       def unquote(queue)() do
