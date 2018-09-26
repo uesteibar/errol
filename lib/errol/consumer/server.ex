@@ -102,12 +102,6 @@ defmodule Errol.Consumer.Server do
               {result, reason}
           end
 
-        with {:ok, message} <- apply_middlewares(message, queue, pipe_before),
-             message <- callback.(message),
-             {:ok, message} <- apply_middlewares(message, queue, pipe_after) do
-          {:ok, message}
-        end
-
         GenServer.cast(monitor_pid, {:processed, {result, self()}})
       end)
 

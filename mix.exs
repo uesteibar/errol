@@ -9,7 +9,7 @@ defmodule Errol.MixProject do
       app: :errol,
       version: @version,
       description: "Opinionated RabbitMQ framework for Elixir",
-      elixir: "~> 1.5",
+      elixir: "~> 1.6",
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -33,6 +33,7 @@ defmodule Errol.MixProject do
   defp deps do
     [
       {:amqp, "~> 1.0"},
+      {:ranch_proxy_protocol, "~> 2.0", override: true},
       {:jason, "~> 1.0", optional: true},
       {:coverex, "~> 1.4", only: :test},
       {:mock, "~> 0.3.0", only: :test},

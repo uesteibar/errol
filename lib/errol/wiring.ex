@@ -211,13 +211,9 @@ defmodule Errol.Wiring do
           callback :: (Errol.Message.t() -> Errol.Message.t())
         ) :: no_return()
   defmacro consume(queue, routing_key, callback) do
-    queue = String.to_atom(queue)
-
     quote do
       @wirings {unquote(queue), unquote(routing_key), @group_name}
-      def unquote(queue)() do
-        unquote(callback)
-      end
+      def unquote(:callback)(unquote(queue)), do: unquote(callback)
     end
   end
 
@@ -246,14 +242,14 @@ defmodule Errol.Wiring do
 
         @wirings
         |> Enum.map(fn {queue, routing_key, group_name} ->
-          callback = apply(__MODULE__, queue, [])
+          callback = apply(__MODULE__, :callback, [queue])
 
           Supervisor.child_spec(
             {
               Errol.Consumer.Server,
               [
                 name: :"#{queue}_consumer",
-                queue: Atom.to_string(queue),
+                queue: queue,
                 routing_key: routing_key,
                 connection: conn,
                 callback: callback,
