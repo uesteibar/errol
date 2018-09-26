@@ -57,6 +57,7 @@ defmodule Errol.Consumer.ServerTest do
 
       assert 1 == AMQP.Queue.consumer_count(channel, "test_queue")
       assert_receive :assert
+      refute_received _
     end
   end
 
